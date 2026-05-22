@@ -107,7 +107,7 @@ export default function SetupPage() {
         {/* Cancel button */}
         <div className="flex justify-end">
           <Link
-            href="/"
+            href="/dashboard"
             className="border border-[#0a0a0a] bg-[#faf7f2] px-5 py-[11px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
           >
             Cancel
@@ -175,7 +175,7 @@ export default function SetupPage() {
           {/* Actions */}
           <div className="mt-8 flex items-center justify-between border-t border-[#0a0a0a] pt-8">
             <Link
-              href="/"
+              href="/dashboard"
               className="border border-[#0a0a0a] bg-[#faf7f2] px-5 py-[15px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
             >
               ← Back
