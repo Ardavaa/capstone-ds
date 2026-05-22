@@ -1,1 +1,14 @@
-C:/Users/ardav/.gemini/config/projects/0fc375b7-7cbb-40f6-8dae-824098d2e420.json
+{
+  "id": "0fc375b7-7cbb-40f6-8dae-824098d2e420",
+  "name": "C:\\Users\\ardav\\orca\\workspaces\\capstone-app\\Nautilus",
+  "projectResources": {
+    "resources": [
+      {
+        "gitFolder": {
+          "folderUri": "file://C:/Users/ardav/orca/workspaces/capstone-app/Nautilus",
+          "allowWrite": true
+        }
+      }
+    ]
+  }
+}
