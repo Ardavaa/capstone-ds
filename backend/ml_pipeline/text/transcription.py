@@ -43,7 +43,7 @@ def transcribe_audio(audio_path: Path) -> str:
     transcriber = get_transcription_pipeline()
     result = cast(
         dict[str, Any],
-        transcriber(str(audio_path)),
+        transcriber(str(audio_path), return_timestamps=True),
     )
     text = result.get("text")
 
