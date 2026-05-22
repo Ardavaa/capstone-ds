@@ -179,8 +179,8 @@ export default function Dashboard() {
           <div className="px-2 pb-1.5 pt-3.5">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Library</span>
           </div>
-          <NavItem icon={ASSET.clock} label="History" />
-          <NavItem icon={ASSET.file}  label="Report Cards" />
+          <NavItem icon={ASSET.clock} label="History" href="/history" />
+          <NavItem icon={ASSET.file}  label="Report Cards" href="/report-cards" />
 
           <div className="px-2 pb-1.5 pt-3.5">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Account</span>
