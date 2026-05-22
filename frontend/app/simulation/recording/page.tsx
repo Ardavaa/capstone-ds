@@ -139,7 +139,7 @@ export default function RecordingPage() {
 
   function handleStop() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    router.push("/dashboard");
+    router.push("/simulation/analyzing");
   }
 
   function handlePause() {
