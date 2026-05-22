@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Figma asset URLs — valid for 7 days from 2026-05-22
 const ASSET = {
   dashboard:  "https://www.figma.com/api/mcp/asset/4bcb7c45-a9db-46db-bbb3-cfd882d45448",
@@ -47,15 +49,14 @@ function scoreColor(score: number): string {
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-type NavItemProps = { icon: string; label: string; active?: boolean };
+type NavItemProps = { icon: string; label: string; active?: boolean; href?: string };
 
-function NavItem({ icon, label, active = false }: NavItemProps) {
-  return (
-    <div
-      className={`flex cursor-pointer items-center gap-2.5 px-2.5 py-2.5 ${
-        active ? "bg-[#0a0a0a]" : "hover:bg-black/5"
-      }`}
-    >
+function NavItem({ icon, label, active = false, href }: NavItemProps) {
+  const className = `flex cursor-pointer items-center gap-2.5 px-2.5 py-2.5 ${
+    active ? "bg-[#0a0a0a]" : "hover:bg-black/5"
+  }`;
+  const content = (
+    <>
       <img src={icon} alt="" className="size-3.5 shrink-0" />
       <span
         className={`text-[12px] uppercase tracking-[0.6px] ${
@@ -64,8 +65,12 @@ function NavItem({ icon, label, active = false }: NavItemProps) {
       >
         {label}
       </span>
-    </div>
+    </>
   );
+  if (href) {
+    return <Link href={href} className={className}>{content}</Link>;
+  }
+  return <div className={className}>{content}</div>;
 }
 
 type StatCardProps = {
@@ -169,7 +174,7 @@ export default function Dashboard() {
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Workspace</span>
           </div>
           <NavItem icon={ASSET.dashboard} label="Dashboard" active />
-          <NavItem icon={ASSET.plus}      label="New Simulation" />
+          <NavItem icon={ASSET.plus}      label="New Simulation" href="/simulation/setup" />
 
           <div className="px-2 pb-1.5 pt-3.5">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Library</span>
@@ -214,12 +219,15 @@ export default function Dashboard() {
               [ Welcome back, Rafif — 12% above last week ]
             </p>
           </div>
-          <button className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-6 py-[15px] hover:bg-[#1a1a1a]">
+          <Link
+            href="/simulation/setup"
+            className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-6 py-[15px] hover:bg-[#1a1a1a]"
+          >
             <img src={ASSET.plusBtn} alt="" className="size-4" />
             <span className="text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2]">
               New simulation
             </span>
-          </button>
+          </Link>
         </div>
 
         {/* Stats grid */}
