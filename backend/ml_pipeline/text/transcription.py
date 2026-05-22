@@ -8,8 +8,7 @@ import torch
 from transformers import pipeline
 from transformers.pipelines import Pipeline
 
-
-WHISPER_MODEL_ID = "cahya/whisper-medium-id"
+from core.config import WHISPER_MODEL_ID
 
 
 @cache
@@ -44,13 +43,7 @@ def transcribe_audio(audio_path: Path) -> str:
     transcriber = get_transcription_pipeline()
     result = cast(
         dict[str, Any],
-        transcriber(
-            str(audio_path),
-            generate_kwargs={
-                "language": "indonesian",
-                "task": "transcribe",
-            },
-        ),
+        transcriber(str(audio_path)),
     )
     text = result.get("text")
 

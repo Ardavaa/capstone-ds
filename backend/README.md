@@ -35,3 +35,24 @@ uv export --format requirements-txt --no-hashes --output-file requirements.txt
 ```
 
 The current `requirements.txt` was generated from the existing `uv.lock`.
+
+## Run the API
+
+```bash
+uv run uvicorn main:app --reload --port 8000
+```
+
+Requires `ffmpeg` on PATH for media uploads.
+
+## Analyze Endpoint
+
+`POST /api/analyze` (multipart form):
+
+| Field | Type | Required |
+|-------|------|----------|
+| `file` | video/audio file | yes |
+| `question_topic` | string | no (defaults to technical interview topic) |
+
+Pipeline: **ffmpeg** → **Whisper** → delivery metrics (WPM, fillers, pauses) → **S-BERT** content score → non-verbal stub (75) → weighted fusion **40/30/30**.
+
+Example response fields: `final_score`, `content_score`, `delivery_score`, `non_verbal_score`, `transcription`, `delivery_metrics`, `feedback`.
