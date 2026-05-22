@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 // Figma asset URLs — valid 7 days from 2026-05-22
@@ -80,6 +81,7 @@ function CategoryCard({ category, selected, onClick }: CategoryCardProps) {
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function SetupPage() {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<CategoryId | null>("sw-engineer");
   const [customTopic, setCustomTopic] = useState("");
 
@@ -181,14 +183,15 @@ export default function SetupPage() {
               ← Back
             </Link>
 
-            <button
-              type="button"
-              disabled={!canContinue}
-              className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:border-[#bfbfbf] disabled:bg-[#bfbfbf]"
-            >
-              Continue to recording
-              <img src={ASSET.arrowRight} alt="" className="size-4" />
-            </button>
+          <button
+            type="button"
+            disabled={!canContinue}
+            onClick={() => canContinue && router.push("/simulation/recording")}
+            className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:border-[#bfbfbf] disabled:bg-[#bfbfbf]"
+          >
+            Continue to recording
+            <img src={ASSET.arrowRight} alt="" className="size-4" />
+          </button>
           </div>
         </div>
       </div>
