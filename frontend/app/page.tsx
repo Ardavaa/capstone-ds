@@ -87,13 +87,13 @@ export default function LandingPage() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard"
+            href="/login"
             className="border border-[#0a0a0a] bg-[#faf7f2] px-5 py-[11px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
           >
             Log in
           </Link>
           <Link
-            href="/simulation/setup"
+            href="/register"
             className="border border-[#0a0a0a] bg-[#0a0a0a] px-5 py-[11px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#faf7f2] hover:bg-[#1a1a1a]"
           >
             Get started
