@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import {
+  type AnalyzeResponse,
+  formatDuration,
+  loadAnalysisResult,
+} from "@/app/lib/analysis";
+
 // ─── Sidebar icons (same Figma assets as dashboard) ─────────────────────────
 
 const ASSET = {
@@ -180,7 +186,58 @@ function FillerHighlight({ text }: { text: string }) {
   );
 }
 
-function OverviewTab() {
+function buildMetricsFromResult(result: AnalyzeResponse): Metric[] {
+  const dm = result.delivery_metrics;
+  return [
+    {
+      label: "Speaking Rate",
+      value: `${dm.wpm} WPM`,
+      color: dm.wpm >= 120 && dm.wpm <= 160 ? "#3a8377" : "#c9a227",
+    },
+    {
+      label: "Filler Words",
+      value: `${dm.filler_count} (${dm.filler_rate}%)`,
+      color: dm.filler_rate <= 4 ? "#3a8377" : "#c9a227",
+    },
+    {
+      label: "Average Pause",
+      value: `${dm.avg_pause_sec}s`,
+      color: "#3a8377",
+    },
+    {
+      label: "Longest Silence",
+      value: `${dm.longest_silence_sec}s`,
+      color: dm.longest_silence_sec <= 2 ? "#3a8377" : "#c9a227",
+    },
+    {
+      label: "Content Score",
+      value: `${result.content_score}/100`,
+      color: result.content_score >= 70 ? "#3a8377" : "#c9a227",
+    },
+    {
+      label: "Final Score",
+      value: `${result.final_score}/100`,
+      color: result.final_score >= 70 ? "#3a8377" : "#c9a227",
+    },
+  ];
+}
+
+function buildFeedbackFromResult(result: AnalyzeResponse): Feedback[] {
+  return [
+    { type: "warn", title: "Content", detail: result.feedback.content },
+    { type: "warn", title: "Delivery", detail: result.feedback.delivery },
+    {
+      type: result.non_verbal_score >= 75 ? "good" : "warn",
+      title: "Non-verbal",
+      detail: result.feedback.non_verbal,
+    },
+  ];
+}
+
+function OverviewTab({ latest }: { latest: AnalyzeResponse | null }) {
+  const metrics = latest ? buildMetricsFromResult(latest) : METRICS;
+  const feedback = latest ? buildFeedbackFromResult(latest) : FEEDBACK;
+
   return (
     <div className="mt-6 flex flex-col gap-6">
       {/* Two-column grid */}
@@ -192,11 +249,11 @@ function OverviewTab() {
           </h3>
 
           <div className="flex flex-col">
-            {METRICS.map((m, i) => (
+            {metrics.map((m, i) => (
               <div
                 key={m.label}
                 className={`flex items-center justify-between py-2.5 ${
-                  i < METRICS.length - 1 ? "border-b border-[#f0ece4]" : ""
+                  i < metrics.length - 1 ? "border-b border-[#f0ece4]" : ""
                 }`}
               >
                 <span className="text-[11px] uppercase tracking-[1.4px] text-[#0a0a0a]">
@@ -229,7 +286,7 @@ function OverviewTab() {
           </div>
 
           <div className="flex flex-col gap-5">
-            {FEEDBACK.map((fb) => (
+            {feedback.map((fb) => (
               <div key={fb.title} className="flex gap-3">
                 <div
                   className="mt-1 size-2 shrink-0 rounded-full"
@@ -256,21 +313,44 @@ function OverviewTab() {
         </div>
 
         <p className="mb-4 text-[20px] font-bold uppercase leading-snug tracking-[-0.4px] text-[#0a0a0a]">
-          Tell me about a time you had to debug a complex production issue.
+          {latest
+            ? "Latest simulation transcript"
+            : "Tell me about a time you had to debug a complex production issue."}
         </p>
 
         <p className="text-[13px] leading-[22px] text-[#0a0a0a]">
-          <FillerHighlight
-            text={
-              "So kinda last semester I was working on this payment integration and it started failing only on Friday evenings. " +
-              "You know, it was weird because everything passed in staging. I started by reading the logs and saw a timeout pattern. " +
-              "The root cause was a third-party rate limiter that we hadn't accounted for during peak hours. " +
-              "Hmm what I did was add exponential backoff and a circuit breaker, and we also added monitoring so we'd catch it earlier next time. " +
-              "The whole investigation took about two days but we shipped the fix on a Monday."
-            }
-          />
+          {latest?.transcription ? (
+            <FillerHighlight text={latest.transcription} />
+          ) : (
+            <FillerHighlight
+              text={
+                "So kinda last semester I was working on this payment integration and it started failing only on Friday evenings. " +
+                "You know, it was weird because everything passed in staging. I started by reading the logs and saw a timeout pattern. " +
+                "The root cause was a third-party rate limiter that we hadn't accounted for during peak hours. " +
+                "Hmm what I did was add exponential backoff and a circuit breaker, and we also added monitoring so we'd catch it earlier next time. " +
+                "The whole investigation took about two days but we shipped the fix on a Monday."
+              }
+            />
+          )}
         </p>
       </div>
+    </div>
+  );
+}
+
+function TranscriptTab({ latest }: { latest: AnalyzeResponse | null }) {
+  if (!latest?.transcription) {
+    return <PlaceholderTab label="Transcript" />;
+  }
+
+  return (
+    <div className="mt-6 border border-[#e8e4dc] bg-white p-6">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-[#3a8377]">
+        [ Full transcript · score {latest.final_score} ]
+      </p>
+      <p className="text-[13px] leading-[22px] text-[#0a0a0a]">
+        <FillerHighlight text={latest.transcription} />
+      </p>
     </div>
   );
 }
@@ -289,6 +369,14 @@ const TABS: Tab[] = ["OVERVIEW", "DELIVERY", "NON-VERBAL", "TRANSCRIPT"];
 
 export default function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("OVERVIEW");
+  const [latest] = useState<AnalyzeResponse | null>(() =>
+    typeof window !== "undefined" ? loadAnalysisResult() : null,
+  );
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+
+  const reportEyebrow = latest
+    ? `[ Report · ${today} · SW Engineer · ${formatDuration(latest.delivery_metrics.duration_sec)} · ${latest.final_score}/100 ]`
+    : `[ Report · ${today} · SW Engineer ]`;
 
   return (
     <div className="flex h-full overflow-hidden border border-[#0a0a0a] bg-[#faf7f2]">
@@ -348,7 +436,7 @@ export default function ReportCardsPage() {
       <main className="flex-1 overflow-y-auto px-10 pb-10">
         {/* Eyebrow breadcrumb */}
         <p className="mt-6 text-[10px] uppercase tracking-[1.5px] text-[#bfbfbf]">
-          [ Report · 2026.05.21 · SW Engineer ]
+          {reportEyebrow}
         </p>
 
         {/* Header row */}
@@ -389,10 +477,10 @@ export default function ReportCardsPage() {
         </div>
 
         {/* ── Tab content ── */}
-        {activeTab === "OVERVIEW"   && <OverviewTab />}
+        {activeTab === "OVERVIEW"   && <OverviewTab latest={latest} />}
         {activeTab === "DELIVERY"   && <PlaceholderTab label="Delivery" />}
         {activeTab === "NON-VERBAL" && <PlaceholderTab label="Non-verbal" />}
-        {activeTab === "TRANSCRIPT" && <PlaceholderTab label="Transcript" />}
+        {activeTab === "TRANSCRIPT" && <TranscriptTab latest={latest} />}
       </main>
     </div>
   );

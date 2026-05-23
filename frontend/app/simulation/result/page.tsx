@@ -1,6 +1,14 @@
-import Link from "next/link";
+"use client";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+import Link from "next/link";
+import { useState } from "react";
+
+import {
+  type AnalyzeResponse,
+  formatDuration,
+  loadAnalysisResult,
+  performanceLabel,
+} from "@/app/lib/analysis";
 
 type ScoreCategory = {
   id: string;
@@ -13,48 +21,6 @@ type ScoreCategory = {
   tagBg: string;
   tagColor: string;
 };
-
-// ─── Mock data ─────────────────────────────────────────────────────────────
-
-const FINAL_SCORE = 87;
-
-const CATEGORIES: ScoreCategory[] = [
-  {
-    id:          "content",
-    tag:         "[ Content Quality ]",
-    weight:      "[ 40% ]",
-    title:       "What you said.",
-    score:       91,
-    description: "Strong semantic alignment with the questions. Argument structure was clear. Answers stayed on-topic with concrete examples.",
-    barColor:    "#3a8377",
-    tagBg:       "#d6e8e2",
-    tagColor:    "#3a8377",
-  },
-  {
-    id:          "delivery",
-    tag:         "[ Delivery & Fluency ]",
-    weight:      "[ 30% ]",
-    title:       "How you said it.",
-    score:       84,
-    description: "Pacing was natural at 142 WPM. Filler word rate was low. Slight monotone during the second answer — vary intonation more.",
-    barColor:    "#7e78d2",
-    tagBg:       "#ddd9f0",
-    tagColor:    "#7e78d2",
-  },
-  {
-    id:          "nonverbal",
-    tag:         "[ Non-Verbal ]",
-    weight:      "[ 30% ]",
-    title:       "How you appeared.",
-    score:       82,
-    description: "Posture was steady. Eye contact dropped to 64% during Q2 — likely when recalling technical details. Expression read as engaged.",
-    barColor:    "#c75240",
-    tagBg:       "#f4d9d2",
-    tagColor:    "#c75240",
-  },
-];
-
-// ─── Sub-components ────────────────────────────────────────────────────────
 
 function ScoreBar({ score, color }: { score: number; color: string }) {
   return (
@@ -70,7 +36,6 @@ function ScoreBar({ score, color }: { score: number; color: string }) {
 function ScoreCard({ cat }: { cat: ScoreCategory }) {
   return (
     <div className="flex flex-col gap-4 border border-[#e8e4dc] bg-white p-6 shadow-sm">
-      {/* Tag + weight */}
       <div className="flex items-center justify-between">
         <span
           className="px-2 py-1 text-[10px] font-bold uppercase tracking-[1px]"
@@ -81,12 +46,10 @@ function ScoreCard({ cat }: { cat: ScoreCategory }) {
         <span className="text-[10px] uppercase tracking-[1px] text-[#bfbfbf]">{cat.weight}</span>
       </div>
 
-      {/* Title */}
       <h3 className="text-[22px] font-bold uppercase leading-tight tracking-[-0.4px] text-[#0a0a0a]">
         {cat.title}
       </h3>
 
-      {/* Score */}
       <div className="flex items-baseline gap-1">
         <span className="text-[52px] font-bold leading-none tracking-[-2px] text-[#0a0a0a]">
           {cat.score}
@@ -94,23 +57,102 @@ function ScoreCard({ cat }: { cat: ScoreCategory }) {
         <span className="text-[14px] text-[#bfbfbf]">/100</span>
       </div>
 
-      {/* Bar */}
       <ScoreBar score={cat.score} color={cat.barColor} />
-
-      {/* Description */}
       <p className="text-[12px] leading-[19px] text-[#0a0a0a]">{cat.description}</p>
     </div>
   );
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────
+function buildCategories(result: AnalyzeResponse): ScoreCategory[] {
+  const dm = result.delivery_metrics;
+
+  return [
+    {
+      id: "content",
+      tag: "[ Content Quality ]",
+      weight: "[ 40% ]",
+      title: "What you said.",
+      score: result.content_score,
+      description: result.feedback.content,
+      barColor: "#3a8377",
+      tagBg: "#d6e8e2",
+      tagColor: "#3a8377",
+    },
+    {
+      id: "delivery",
+      tag: "[ Delivery & Fluency ]",
+      weight: "[ 30% ]",
+      title: "How you said it.",
+      score: result.delivery_score,
+      description: `${result.feedback.delivery} (${dm.wpm} WPM · ${dm.filler_rate}% fillers · avg pause ${dm.avg_pause_sec}s)`,
+      barColor: "#7e78d2",
+      tagBg: "#ddd9f0",
+      tagColor: "#7e78d2",
+    },
+    {
+      id: "nonverbal",
+      tag: "[ Non-Verbal ]",
+      weight: "[ 30% ]",
+      title: "How you appeared.",
+      score: result.non_verbal_score,
+      description: result.feedback.non_verbal,
+      barColor: "#c75240",
+      tagBg: "#f4d9d2",
+      tagColor: "#c75240",
+    },
+  ];
+}
+
+function summaryHeadline(score: number): { line1: string; highlight: string; line2: string } {
+  if (score >= 80) {
+    return { line1: "You came across", highlight: "thoughtful", line2: "and prepared." };
+  }
+  if (score >= 65) {
+    return { line1: "You came across", highlight: "capable", line2: "with room to polish." };
+  }
+  return { line1: "You have a", highlight: "solid base", line2: "to build on." };
+}
 
 export default function ResultPage() {
+  const [result] = useState<AnalyzeResponse | null>(() =>
+    typeof window !== "undefined" ? loadAnalysisResult() : null,
+  );
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+
+  if (!result) {
+    return (
+      <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-[#faf7f2] px-8">
+        <p className="text-[14px] uppercase tracking-[1.5px] text-[#bfbfbf]">
+          No analysis result found
+        </p>
+        <p className="max-w-md text-center text-[13px] text-[#0a0a0a]">
+          Complete a recording and wait for analysis to finish, or run a new simulation.
+        </p>
+        <div className="flex gap-3">
+          <Link
+            href="/simulation/setup"
+            className="border border-[#0a0a0a] bg-[#0a0a0a] px-5 py-3 text-[12px] uppercase tracking-[1px] text-[#faf7f2]"
+          >
+            New simulation
+          </Link>
+          <Link
+            href="/dashboard"
+            className="border border-[#0a0a0a] px-5 py-3 text-[12px] uppercase tracking-[1px] text-[#0a0a0a]"
+          >
+            Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const categories = buildCategories(result);
+  const headline = summaryHeadline(result.final_score);
+  const durationLabel = formatDuration(result.delivery_metrics.duration_sec);
+  const summaryText = `${result.feedback.content} ${result.feedback.delivery}`;
 
   return (
     <div className="min-h-full bg-[#faf7f2]">
-      {/* ── Top nav ── */}
       <nav className="flex h-14 items-center justify-between border-b border-[#0a0a0a] px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="size-6 bg-[#0a0a0a]" />
@@ -127,7 +169,16 @@ export default function ResultPage() {
           type="button"
           className="flex items-center gap-2 border border-[#0a0a0a] bg-[#faf7f2] px-4 py-2 text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
@@ -136,28 +187,23 @@ export default function ResultPage() {
         </button>
       </nav>
 
-      {/* ── Hero ── */}
       <section className="border-b border-[#0a0a0a] px-10 py-10">
         <div className="flex items-start gap-10">
-          {/* Left: summary */}
           <div className="flex flex-1 flex-col">
             <p className="mb-4 text-[11px] uppercase tracking-[1.5px] text-[#bfbfbf]">
-              [ SW Engineer · 3 Q · 4:33 ]
+              [ SW Engineer · 3 Q · {durationLabel} ]
             </p>
 
             <h1 className="mb-4 text-[42px] font-bold leading-[1.1] tracking-[-1.2px] text-[#0a0a0a]">
-              You came across
+              {headline.line1}
               <br />
-              as{" "}
-              <em className="italic text-[#3a8377]">thoughtful</em>
+              as <em className="italic text-[#3a8377]">{headline.highlight}</em>
               <br />
-              and prepared.
+              {headline.line2}
             </h1>
 
-            <p className="mb-8 max-w-[420px] text-[13px] leading-[20px] text-[#0a0a0a]">
-              Strong content quality and clear delivery. Your eye contact
-              dipped during the technical question — that&apos;s where most of
-              your score drop happened.
+            <p className="mb-8 max-w-[520px] text-[13px] leading-[20px] text-[#0a0a0a]">
+              {summaryText}
             </p>
 
             <div className="flex items-center gap-3">
@@ -176,20 +222,20 @@ export default function ResultPage() {
             </div>
           </div>
 
-          {/* Right: big score card */}
           <div className="flex w-[320px] shrink-0 flex-col items-center justify-center rounded-2xl border border-[#e8e4dc] bg-white px-10 py-10 shadow-md">
             <span className="text-[96px] font-bold leading-none tracking-[-4px] text-[#0a0a0a]">
-              {FINAL_SCORE}
+              {result.final_score}
             </span>
             <span className="mt-2 text-[11px] uppercase tracking-[1.5px] text-[#bfbfbf]">
               [ Out of 100 ]
             </span>
-            <p className="mt-3 text-[15px] italic text-[#3a8377]">Strong performance</p>
+            <p className="mt-3 text-[15px] italic text-[#3a8377]">
+              {performanceLabel(result.final_score)}
+            </p>
           </div>
         </div>
       </section>
 
-      {/* ── Score breakdown ── */}
       <section id="breakdown" className="px-10 py-10">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-[16px] font-bold uppercase tracking-[-0.2px] text-[#0a0a0a]">
@@ -201,19 +247,33 @@ export default function ResultPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <ScoreCard key={cat.id} cat={cat} />
           ))}
         </div>
+
+        {result.transcription && (
+          <div className="mt-8 border border-[#e8e4dc] bg-white p-6">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-[#3a8377]">
+              [ Transcript ]
+            </p>
+            <p className="text-[13px] leading-[22px] text-[#0a0a0a]">{result.transcription}</p>
+          </div>
+        )}
       </section>
 
-      {/* ── Footer actions ── */}
       <div className="flex items-center justify-center gap-4 border-t border-[#e8e4dc] px-10 py-8">
         <Link
           href="/dashboard"
           className="border border-[#0a0a0a] bg-[#faf7f2] px-6 py-3 text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
         >
           ← Back to dashboard
+        </Link>
+        <Link
+          href="/report-cards"
+          className="border border-[#0a0a0a] bg-[#faf7f2] px-6 py-3 text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
+        >
+          View report card
         </Link>
         <Link
           href="/simulation/setup"

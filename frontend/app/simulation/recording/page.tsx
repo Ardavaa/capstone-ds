@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { saveRecordingToSession } from "@/app/lib/analysis";
+
 const QUESTIONS = [
   "Tell me about yourself and why you're applying for this role.",
   "Tell me about a time you had to debug a complex production issue. Walk me through your process.",
@@ -78,6 +80,8 @@ export default function RecordingPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const [currentQ, setCurrentQ] = useState(1); // 1-indexed
   const [elapsed, setElapsed] = useState(0);
@@ -85,6 +89,9 @@ export default function RecordingPage() {
   const [cameraOn, setCameraOn] = useState(true);
   const [paused, setPaused] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Start webcam + mic
   useEffect(() => {
@@ -98,6 +105,27 @@ export default function RecordingPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+
+        const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+          ? "video/webm;codecs=vp9,opus"
+          : MediaRecorder.isTypeSupported("video/webm")
+            ? "video/webm"
+            : "";
+
+        const recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+
+        chunksRef.current = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.start(1000);
+        recorderRef.current = recorder;
+        setIsRecording(true);
       } catch (err) {
         console.error("Media error:", err);
         setMediaError("Camera/mic access denied. Please allow permissions and reload.");
@@ -105,6 +133,7 @@ export default function RecordingPage() {
     }
     startMedia();
     return () => {
+      recorderRef.current?.stop();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -138,8 +167,43 @@ export default function RecordingPage() {
   }
 
   function handleStop() {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    router.push("/simulation/analyzing");
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      setSaveError("No active recording found. Please reload and try again.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    recorder.onstop = async () => {
+      try {
+        const mimeType = recorder.mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+
+        if (blob.size === 0) {
+          throw new Error("Recording is empty. Please record again.");
+        }
+
+        await saveRecordingToSession(blob, {
+          mimeType,
+          durationSec: elapsed,
+        });
+
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        setIsRecording(false);
+        router.push("/simulation/analyzing");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to save recording.";
+        setSaveError(message);
+        setIsSaving(false);
+      }
+    };
+
+    if (recorder.state === "recording") {
+      recorder.stop();
+    }
   }
 
   function handlePause() {
@@ -206,9 +270,11 @@ export default function RecordingPage() {
           )}
 
           {/* Media error overlay */}
-          {mediaError && (
+          {(mediaError || saveError) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center">
-              <p className="text-[12px] uppercase tracking-[1px] text-[#c75240]">{mediaError}</p>
+              <p className="text-[12px] uppercase tracking-[1px] text-[#c75240]">
+                {mediaError ?? saveError}
+              </p>
             </div>
           )}
 
@@ -293,8 +359,9 @@ export default function RecordingPage() {
           <button
             type="button"
             onClick={handleStop}
+            disabled={!isRecording || isSaving}
             title="End interview"
-            className="flex size-14 items-center justify-center rounded-full bg-[#c75240] text-white shadow-lg hover:bg-[#b04030] transition-colors"
+            className="flex size-14 items-center justify-center rounded-full bg-[#c75240] text-white shadow-lg hover:bg-[#b04030] transition-colors disabled:opacity-50"
           >
             <IconStop />
           </button>

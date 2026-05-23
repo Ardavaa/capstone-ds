@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { setQuestionTopic } from "@/app/lib/analysis";
+
 // Figma asset URLs — valid 7 days from 2026-05-22
 const ASSET = {
   code:       "https://www.figma.com/api/mcp/asset/f616f157-027b-4199-a7a0-a7ef9dcabac7",
@@ -86,6 +88,33 @@ export default function SetupPage() {
   const [customTopic, setCustomTopic] = useState("");
 
   const canContinue = selectedId !== null || customTopic.trim().length > 0;
+
+  function buildQuestionTopic(): string {
+    const custom = customTopic.trim();
+    if (custom) return custom;
+
+    const category = CATEGORIES.find((c) => c.id === selectedId);
+    if (!category) {
+      return "software engineer technical interview problem solving";
+    }
+
+    const topicByCategory: Record<CategoryId, string> = {
+      "sw-engineer": "software engineer technical interview debugging system design backend",
+      "data-analyst": "data analyst case interview SQL analytics problem solving",
+      "product-mgr": "product manager behavioral interview leadership stakeholder communication",
+      marketing: "marketing case interview campaign strategy communication",
+      "ui-ux": "UI UX design portfolio interview product thinking usability",
+      general: "general job interview introduction communication career goals",
+    };
+
+    return topicByCategory[category.id];
+  }
+
+  function handleContinue() {
+    if (!canContinue) return;
+    setQuestionTopic(buildQuestionTopic());
+    router.push("/simulation/recording");
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#faf7f2]">
@@ -186,7 +215,7 @@ export default function SetupPage() {
           <button
             type="button"
             disabled={!canContinue}
-            onClick={() => canContinue && router.push("/simulation/recording")}
+            onClick={handleContinue}
             className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:border-[#bfbfbf] disabled:bg-[#bfbfbf]"
           >
             Continue to recording

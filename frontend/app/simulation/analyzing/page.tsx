@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import {
+  analyzeRecording,
+  getQuestionTopic,
+  loadRecordingFromSession,
+  saveAnalysisResult,
+} from "@/app/lib/analysis";
 
 type StepState = "pending" | "active" | "done";
 
@@ -9,19 +17,18 @@ type Step = {
   id: number;
   label: string;
   tech: string;
-  duration: number; // ms spent on this step
 };
 
 const STEPS: Step[] = [
-  { id: 1, label: "Audio Transcription",                   tech: "Whisper",                duration: 2200 },
-  { id: 2, label: "Speech Pattern Analysis",               tech: "Wav2Vec2 · Silero VAD",  duration: 2800 },
-  { id: 3, label: "Facial Expression & Gesture Detection", tech: "YOLO5Face · MediaPipe",  duration: 3200 },
-  { id: 4, label: "Semantic Content Evaluation",           tech: "IndoBERT · S-BERT",      duration: 2600 },
-  { id: 5, label: "Generating Feedback",                   tech: "Weighted Fusion",        duration: 2000 },
+  { id: 1, label: "Audio Transcription", tech: "Whisper" },
+  { id: 2, label: "Speech Pattern Analysis", tech: "Wav2Vec2 · Silero VAD" },
+  { id: 3, label: "Facial Expression & Gesture Detection", tech: "YOLO5Face · MediaPipe" },
+  { id: 4, label: "Semantic Content Evaluation", tech: "IndoBERT · S-BERT" },
+  { id: 5, label: "Generating Feedback", tech: "Weighted Fusion" },
 ];
 
-function stepState(stepId: number, activeId: number): StepState {
-  if (stepId < activeId) return "done";
+function stepState(stepId: number, activeId: number, finished: boolean): StepState {
+  if (finished || stepId < activeId) return "done";
   if (stepId === activeId) return "active";
   return "pending";
 }
@@ -30,7 +37,13 @@ function CheckIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <rect width="14" height="14" rx="2" fill="#3a8377" />
-      <polyline points="3,7 6,10 11,4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline
+        points="3,7 6,10 11,4"
+        stroke="white"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -39,29 +52,55 @@ export default function AnalyzingPage() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(1);
   const [finished, setFinished] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    let step = 1;
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    function advance() {
-      if (step > STEPS.length) {
-        setFinished(true);
-        setTimeout(() => router.push("/simulation/result"), 800);
-        return;
-      }
-      setActiveStep(step);
-      const duration = STEPS[step - 1]?.duration ?? 2000;
-      step += 1;
-      setTimeout(advance, duration);
+    const recording = loadRecordingFromSession();
+    if (!recording) {
+      setError("No recording found. Please record your interview again.");
+      return;
     }
 
-    advance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let step = 1;
+    const stepTimer = setInterval(() => {
+      step += 1;
+      if (step <= STEPS.length) {
+        setActiveStep(step);
+      }
+    }, 3500);
+
+    async function runAnalysis() {
+      try {
+        const result = await analyzeRecording(
+          recording.blob,
+          getQuestionTopic(),
+        );
+        saveAnalysisResult(result);
+        clearInterval(stepTimer);
+        setActiveStep(STEPS.length);
+        setFinished(true);
+        setTimeout(() => router.push("/simulation/result"), 800);
+      } catch (err) {
+        clearInterval(stepTimer);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Analysis failed. Check that the backend is running on port 8000.";
+        setError(message);
+      }
+    }
+
+    runAnalysis();
+
+    return () => clearInterval(stepTimer);
+  }, [router]);
 
   return (
     <div className="flex min-h-full flex-col bg-[#faf7f2] px-12 py-16">
-      {/* ── Eyebrow ── */}
       <div className="flex items-center gap-3">
         <div className="h-px w-8 bg-[#0a0a0a]" />
         <span className="text-[11px] uppercase tracking-[2.2px] text-[#bfbfbf]">
@@ -69,7 +108,6 @@ export default function AnalyzingPage() {
         </span>
       </div>
 
-      {/* ── Headline ── */}
       <h1 className="mt-6 text-[56px] font-bold uppercase leading-[1.05] tracking-[-2px] text-[#0a0a0a]">
         Reading
         <br />
@@ -78,81 +116,91 @@ export default function AnalyzingPage() {
         the lines.
       </h1>
 
-      {/* ── Subtitle ── */}
       <p className="mt-6 max-w-[520px] text-[13px] leading-[20px] text-[#0a0a0a]">
-        This usually takes about 90 seconds. You can leave this tab open —
-        we&apos;ll have results ready when you return.
+        {error
+          ? "We could not finish analysis. See the message below and try again."
+          : "Uploading your recording and running transcription, delivery metrics, and content scoring. This may take up to a few minutes on first run."}
       </p>
 
-      {/* ── Steps list ── */}
-      <div className="mt-10 w-full max-w-[540px] border border-[#0a0a0a]">
-        {STEPS.map((step) => {
-          const state = finished ? "done" : stepState(step.id, activeStep);
-          return (
-            <div
-              key={step.id}
-              className={`flex items-center justify-between border-b border-[#0a0a0a] px-5 py-3.5 last:border-b-0 transition-colors duration-300 ${
-                state === "active"
-                  ? "bg-[#0a0a0a]"
-                  : state === "done"
-                  ? "bg-white"
-                  : "bg-white"
-              }`}
+      {error ? (
+        <div className="mt-8 max-w-[540px] border border-[#c75240] bg-white p-5">
+          <p className="text-[12px] uppercase tracking-[1px] text-[#c75240]">{error}</p>
+          <div className="mt-4 flex gap-3">
+            <Link
+              href="/simulation/recording"
+              className="border border-[#0a0a0a] bg-[#0a0a0a] px-4 py-2 text-[11px] font-medium uppercase tracking-[1px] text-[#faf7f2]"
             >
-              {/* Left: icon/number + label */}
-              <div className="flex items-center gap-3">
-                {/* Icon / step number */}
-                <div className="flex size-[22px] shrink-0 items-center justify-center">
-                  {state === "done" ? (
-                    <CheckIcon />
-                  ) : (
-                    <span
-                      className={`flex size-[22px] items-center justify-center border text-[10px] font-bold ${
-                        state === "active"
-                          ? "border-white/30 text-white"
-                          : "border-[#bfbfbf] text-[#bfbfbf]"
-                      }`}
-                    >
-                      {step.id}
-                    </span>
+              Record again
+            </Link>
+            <Link
+              href="/simulation/setup"
+              className="border border-[#0a0a0a] bg-[#faf7f2] px-4 py-2 text-[11px] font-medium uppercase tracking-[1px] text-[#0a0a0a]"
+            >
+              Back to setup
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-10 w-full max-w-[540px] border border-[#0a0a0a]">
+          {STEPS.map((step) => {
+            const state = stepState(step.id, activeStep, finished);
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center justify-between border-b border-[#0a0a0a] px-5 py-3.5 last:border-b-0 transition-colors duration-300 ${
+                  state === "active" ? "bg-[#0a0a0a]" : "bg-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex size-[22px] shrink-0 items-center justify-center">
+                    {state === "done" ? (
+                      <CheckIcon />
+                    ) : (
+                      <span
+                        className={`flex size-[22px] items-center justify-center border text-[10px] font-bold ${
+                          state === "active"
+                            ? "border-white/30 text-white"
+                            : "border-[#bfbfbf] text-[#bfbfbf]"
+                        }`}
+                      >
+                        {step.id}
+                      </span>
+                    )}
+                  </div>
+
+                  <span
+                    className={`text-[12px] font-medium uppercase tracking-[1px] transition-colors ${
+                      state === "active"
+                        ? "text-[#faf7f2]"
+                        : state === "done"
+                          ? "text-[#0a0a0a]"
+                          : "text-[#bfbfbf]"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+
+                  {state === "active" && (
+                    <span className="ml-1 size-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                   )}
                 </div>
 
-                {/* Label */}
                 <span
-                  className={`text-[12px] font-medium uppercase tracking-[1px] transition-colors ${
+                  className={`text-[11px] tracking-[0.3px] transition-colors ${
                     state === "active"
-                      ? "text-[#faf7f2]"
+                      ? "text-white/50"
                       : state === "done"
-                      ? "text-[#0a0a0a]"
-                      : "text-[#bfbfbf]"
+                        ? "text-[#bfbfbf]"
+                        : "text-[#bfbfbf]/50"
                   }`}
                 >
-                  {step.label}
+                  {step.tech}
                 </span>
-
-                {/* Spinner on active */}
-                {state === "active" && (
-                  <span className="ml-1 size-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                )}
               </div>
-
-              {/* Right: tech stack */}
-              <span
-                className={`text-[11px] tracking-[0.3px] transition-colors ${
-                  state === "active"
-                    ? "text-white/50"
-                    : state === "done"
-                    ? "text-[#bfbfbf]"
-                    : "text-[#bfbfbf]/50"
-                }`}
-              >
-                {step.tech}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
