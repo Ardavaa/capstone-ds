@@ -9,6 +9,24 @@ node_modules/
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / editor
+.cursor/
+.idea/
+.vscode/
+*.log
 
 # testing
 coverage/

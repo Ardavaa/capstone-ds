@@ -10,6 +10,7 @@ from core.config import (
     WEIGHT_NON_VERBAL,
 )
 from ml_pipeline.audio.analysis import DeliveryAnalysisResult
+from ml_pipeline.audio.emotion import EmotionAnalysisResult
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ def build_feedback(
     delivery: DeliveryAnalysisResult,
     non_verbal_score: int,
     transcription_preview: str,
+    emotion: EmotionAnalysisResult | None = None,
 ) -> dict[str, str]:
     """Generate rule-based actionable feedback from analysis metrics.
 
@@ -68,6 +70,7 @@ def build_feedback(
         delivery: Delivery analysis metrics and score.
         non_verbal_score: Non-verbal dimension score.
         transcription_preview: Short transcript snippet for content feedback.
+        emotion: Optional voice emotion metrics for delivery feedback.
 
     Returns:
         Feedback dictionary with ``content``, ``delivery``, and ``non_verbal`` keys.
@@ -110,6 +113,24 @@ def build_feedback(
             f"Avg pause {delivery.avg_pause_sec}s."
         )
 
+    if emotion is not None and emotion.chunks_analyzed > 0:
+        stability_pct = int(emotion.stability_score * 100)
+        if emotion.nervous_rate >= 0.4:
+            delivery_msg += (
+                f" Voice tone sounds tense ({emotion.dominant_emotion}, "
+                f"{int(emotion.nervous_rate * 100)}% nervous segments)."
+            )
+        elif emotion.emotion_score >= 80:
+            delivery_msg += (
+                f" Voice tone is steady ({emotion.dominant_emotion}, "
+                f"{stability_pct}% stability)."
+            )
+        else:
+            delivery_msg += (
+                f" Voice emotion score {emotion.emotion_score}/100 "
+                f"({emotion.dominant_emotion})."
+            )
+
     if non_verbal_score >= 80:
         non_verbal_msg = "Non-verbal signals look confident (stub score — video ML pending)."
     else:
@@ -130,6 +151,8 @@ def run_fusion(
     delivery: DeliveryAnalysisResult,
     non_verbal_score: int,
     transcription: str,
+    emotion: EmotionAnalysisResult | None = None,
+    blended_delivery_score: int | None = None,
 ) -> FusionResult:
     """Fuse dimension scores and build feedback in one step.
 
@@ -138,23 +161,31 @@ def run_fusion(
         delivery: Delivery analysis result including delivery score.
         non_verbal_score: Non-verbal score 0–100.
         transcription: Full transcript text for feedback preview.
+        emotion: Optional voice emotion metrics for feedback.
+        blended_delivery_score: Delivery score after blending fluency + emotion.
 
     Returns:
         ``FusionResult`` with final score and feedback.
     """
 
-    final = fuse(content_score, delivery.delivery_score, non_verbal_score)
+    delivery_score = (
+        blended_delivery_score
+        if blended_delivery_score is not None
+        else delivery.delivery_score
+    )
+    final = fuse(content_score, delivery_score, non_verbal_score)
     feedback = build_feedback(
         content_score,
         delivery,
         non_verbal_score,
         transcription,
+        emotion=emotion,
     )
 
     return FusionResult(
         final_score=final,
         content_score=content_score,
-        delivery_score=delivery.delivery_score,
+        delivery_score=delivery_score,
         non_verbal_score=non_verbal_score,
         feedback=feedback,
     )
