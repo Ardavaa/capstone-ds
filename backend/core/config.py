@@ -6,6 +6,14 @@ from typing import Final
 
 WHISPER_MODEL_ID: Final[str] = "cobrayyxx/whisper-small-indo-eng"
 SBERT_MODEL_ID: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
+EMOTION_MODEL_ID: Final[str] = "superb/wav2vec2-base-superb-er"
+
+# ─── Voice emotion (SER) ─────────────────────────────────────────────────────
+
+EMOTION_SAMPLE_RATE: Final[int] = 16000
+EMOTION_CHUNK_SEC: Final[float] = 3.0
+EMOTION_MIN_CHUNK_SEC: Final[float] = 1.0
+EMOTION_DELIVERY_BLEND_WEIGHT: Final[float] = 0.25
 
 # ─── Fusion weights (must sum to 1.0) ────────────────────────────────────────
 

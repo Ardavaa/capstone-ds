@@ -16,6 +16,15 @@ export type DeliveryMetrics = {
   duration_sec: number;
 };
 
+export type EmotionMetrics = {
+  dominant_emotion: string;
+  emotion_distribution: Record<string, number>;
+  stability_score: number;
+  nervous_rate: number;
+  emotion_score: number;
+  chunks_analyzed: number;
+};
+
 export type AnalyzeResponse = {
   final_score: number;
   content_score: number;
@@ -23,6 +32,7 @@ export type AnalyzeResponse = {
   non_verbal_score: number;
   transcription: string;
   delivery_metrics: DeliveryMetrics;
+  emotion_metrics: EmotionMetrics;
   feedback: {
     content: string;
     delivery: string;
