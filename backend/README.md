@@ -53,8 +53,10 @@ Requires `ffmpeg` on PATH for media uploads.
 | `file` | video/audio file | yes |
 | `question_topic` | string | no (defaults to technical interview topic) |
 
-Pipeline: **ffmpeg** → **Whisper** → delivery metrics (WPM, fillers, pauses) → **voice emotion (SER)** → **S-BERT** content score → non-verbal stub (75) → weighted fusion **40/30/30**.
+Pipeline: **ffmpeg** → **Whisper** → delivery metrics (WPM, fillers, pauses) → **voice emotion (SER)** → **S-BERT** content score → **video facial emotion (YOLOv8-cls + MediaPipe face detection)** → weighted fusion **40/30/30**.
 
-Example response fields: `final_score`, `content_score`, `delivery_score`, `non_verbal_score`, `transcription`, `delivery_metrics`, `emotion_metrics`, `feedback`.
+Example response fields: `final_score`, `content_score`, `delivery_score`, `non_verbal_score`, `transcription`, `delivery_metrics`, `emotion_metrics`, `video_emotion_metrics`, `feedback`.
 
 `emotion_metrics` includes `dominant_emotion`, `emotion_distribution`, `stability_score`, `nervous_rate`, `emotion_score`, and `chunks_analyzed`. Delivery score blends fluency (75%) with voice emotion (25%).
+
+`video_emotion_metrics` includes `dominant_emotion`, `emotion_distribution`, `stability_score`, `nervous_rate`, `non_verbal_score`, `frames_analyzed`, and `frames_sampled`. The YOLOv8-cls weights live at `backend/ml_pipeline/video/models/best.pt`.

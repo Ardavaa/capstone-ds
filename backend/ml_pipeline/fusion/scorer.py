@@ -11,6 +11,7 @@ from core.config import (
 )
 from ml_pipeline.audio.analysis import DeliveryAnalysisResult
 from ml_pipeline.audio.emotion import EmotionAnalysisResult
+from ml_pipeline.video.emotion import VideoEmotionResult
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,7 @@ def build_feedback(
     non_verbal_score: int,
     transcription_preview: str,
     emotion: EmotionAnalysisResult | None = None,
+    video_emotion: VideoEmotionResult | None = None,
 ) -> dict[str, str]:
     """Generate rule-based actionable feedback from analysis metrics.
 
@@ -71,6 +73,7 @@ def build_feedback(
         non_verbal_score: Non-verbal dimension score.
         transcription_preview: Short transcript snippet for content feedback.
         emotion: Optional voice emotion metrics for delivery feedback.
+        video_emotion: Optional facial emotion metrics for non-verbal feedback.
 
     Returns:
         Feedback dictionary with ``content``, ``delivery``, and ``non_verbal`` keys.
@@ -131,12 +134,28 @@ def build_feedback(
                 f"({emotion.dominant_emotion})."
             )
 
-    if non_verbal_score >= 80:
-        non_verbal_msg = "Non-verbal signals look confident (stub score — video ML pending)."
+    if video_emotion is not None and video_emotion.frames_analyzed > 0:
+        stability_pct = int(video_emotion.stability_score * 100)
+        if video_emotion.nervous_rate >= 0.4:
+            non_verbal_msg = (
+                f"Facial expression looks tense ({video_emotion.dominant_emotion}, "
+                f"{int(video_emotion.nervous_rate * 100)}% nervous frames). "
+                f"Aim for a steadier, more neutral expression."
+            )
+        elif non_verbal_score >= 80:
+            non_verbal_msg = (
+                f"Confident facial expression ({video_emotion.dominant_emotion}, "
+                f"{stability_pct}% stability)."
+            )
+        else:
+            non_verbal_msg = (
+                f"Facial emotion score {non_verbal_score}/100 "
+                f"({video_emotion.dominant_emotion}, {stability_pct}% stability)."
+            )
     else:
         non_verbal_msg = (
-            "Non-verbal analysis uses a placeholder score until video models are enabled. "
-            "Maintain eye contact and steady posture when recording."
+            "No face detected consistently in the video — make sure your face is "
+            "visible and well-lit throughout the recording."
         )
 
     return {
@@ -152,6 +171,7 @@ def run_fusion(
     non_verbal_score: int,
     transcription: str,
     emotion: EmotionAnalysisResult | None = None,
+    video_emotion: VideoEmotionResult | None = None,
     blended_delivery_score: int | None = None,
 ) -> FusionResult:
     """Fuse dimension scores and build feedback in one step.
@@ -162,6 +182,7 @@ def run_fusion(
         non_verbal_score: Non-verbal score 0–100.
         transcription: Full transcript text for feedback preview.
         emotion: Optional voice emotion metrics for feedback.
+        video_emotion: Optional facial emotion metrics for non-verbal feedback.
         blended_delivery_score: Delivery score after blending fluency + emotion.
 
     Returns:
@@ -180,6 +201,7 @@ def run_fusion(
         non_verbal_score,
         transcription,
         emotion=emotion,
+        video_emotion=video_emotion,
     )
 
     return FusionResult(

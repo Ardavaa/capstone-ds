@@ -17,7 +17,7 @@ from ml_pipeline.audio.extraction import extract_audio_to_wav
 from ml_pipeline.fusion.scorer import FusionResult, run_fusion
 from ml_pipeline.text.scoring import content_score
 from ml_pipeline.text.transcription import transcribe_audio
-from ml_pipeline.video.stub import non_verbal_score
+from ml_pipeline.video.emotion import VideoEmotionResult, analyze_video_emotion
 
 router = APIRouter()
 
@@ -31,6 +31,18 @@ class EmotionMetrics(BaseModel):
     nervous_rate: float
     emotion_score: int = Field(ge=0, le=100)
     chunks_analyzed: int = Field(ge=0)
+
+
+class VideoEmotionMetrics(BaseModel):
+    """Facial emotion metrics exposed in the analysis API response."""
+
+    dominant_emotion: str
+    emotion_distribution: dict[str, float]
+    stability_score: float
+    nervous_rate: float
+    non_verbal_score: int = Field(ge=0, le=100)
+    frames_analyzed: int = Field(ge=0)
+    frames_sampled: int = Field(ge=0)
 
 
 class DeliveryMetrics(BaseModel):
@@ -64,6 +76,7 @@ class AnalyzeResponse(BaseModel):
         transcription: Whisper speech-to-text output.
         delivery_metrics: Raw delivery metrics.
         emotion_metrics: Voice emotion (SER) metrics.
+        video_emotion_metrics: Facial emotion metrics from the video stream.
         feedback: Actionable feedback by dimension.
         file_name: Original uploaded filename.
         file_size_bytes: Uploaded file size in bytes.
@@ -76,6 +89,7 @@ class AnalyzeResponse(BaseModel):
     transcription: str
     delivery_metrics: DeliveryMetrics
     emotion_metrics: EmotionMetrics
+    video_emotion_metrics: VideoEmotionMetrics
     feedback: dict[str, str]
     file_name: str
     file_size_bytes: int
@@ -88,6 +102,7 @@ class _ProcessResult:
     transcription: str
     delivery: DeliveryAnalysisResult
     emotion: EmotionAnalysisResult
+    video_emotion: VideoEmotionResult
     fusion: FusionResult
 
 
@@ -99,7 +114,8 @@ async def analyze_interview(
     """Analyze uploaded interview media end-to-end.
 
     Pipeline: ffmpeg extraction → Whisper transcription → delivery + voice emotion →
-    S-BERT content score → non-verbal stub → weighted fusion.
+    S-BERT content score → video facial emotion (YOLOv8-cls + MediaPipe) →
+    weighted fusion.
 
     Args:
         file: Uploaded ``.mp4``, ``.wav``, or other media supported by ffmpeg.
@@ -144,6 +160,7 @@ async def analyze_interview(
 
     delivery = result.delivery
     emotion = result.emotion
+    video_emotion = result.video_emotion
     fusion = result.fusion
 
     return AnalyzeResponse(
@@ -167,6 +184,15 @@ async def analyze_interview(
             nervous_rate=emotion.nervous_rate,
             emotion_score=emotion.emotion_score,
             chunks_analyzed=emotion.chunks_analyzed,
+        ),
+        video_emotion_metrics=VideoEmotionMetrics(
+            dominant_emotion=video_emotion.dominant_emotion,
+            emotion_distribution=video_emotion.emotion_distribution,
+            stability_score=video_emotion.stability_score,
+            nervous_rate=video_emotion.nervous_rate,
+            non_verbal_score=video_emotion.non_verbal_score,
+            frames_analyzed=video_emotion.frames_analyzed,
+            frames_sampled=video_emotion.frames_sampled,
         ),
         feedback=fusion.feedback,
         file_name=file.filename or "uploaded-media",
@@ -200,13 +226,14 @@ def _process_interview(
         EMOTION_DELIVERY_BLEND_WEIGHT,
     )
     content = content_score(transcription, question_topic)
-    non_verbal = non_verbal_score()
+    video_emotion = analyze_video_emotion(upload_path)
     fusion = run_fusion(
         content,
         delivery,
-        non_verbal,
+        video_emotion.non_verbal_score,
         transcription,
         emotion=emotion,
+        video_emotion=video_emotion,
         blended_delivery_score=blended_delivery,
     )
 
@@ -214,5 +241,6 @@ def _process_interview(
         transcription=transcription,
         delivery=delivery,
         emotion=emotion,
+        video_emotion=video_emotion,
         fusion=fusion,
     )
