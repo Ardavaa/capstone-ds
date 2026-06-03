@@ -1,5 +1,6 @@
 """Central configuration for models, scoring weights, and analysis thresholds."""
 
+from pathlib import Path
 from typing import Final
 
 # ─── Model IDs ───────────────────────────────────────────────────────────────
@@ -49,9 +50,17 @@ WPM_TOLERANCE: Final[float] = 60.0
 # Pause detection (librosa.effects.split top_db)
 PAUSE_TOP_DB: Final[int] = 30
 
-# ─── Non-verbal stub ─────────────────────────────────────────────────────────
+# ─── Video emotion (facial expression) ──────────────────────────────────────
 
-NON_VERBAL_STUB_SCORE: Final[int] = 75
+VIDEO_EMOTION_MODEL_PATH: Final[Path] = (
+    Path(__file__).resolve().parent.parent
+    / "ml_pipeline"
+    / "video"
+    / "models"
+    / "best.pt"
+)
+VIDEO_FRAME_SAMPLE_FPS: Final[float] = 1.0
+VIDEO_FACE_DETECTION_CONFIDENCE: Final[float] = 0.5
 
 # ─── Default topic when client omits question_topic ───────────────────────────
 
