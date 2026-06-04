@@ -69,9 +69,6 @@ def transcribe_audio(audio_path: Path) -> str:
                 "repetition_penalty": 1.2,
                 # Greedy decoding — more deterministic, less prone to drift
                 "temperature": 0.0,
-                # Each chunk decoded independently; cross-chunk context is the
-                # main trigger for runaway repetition loops in long recordings
-                "condition_on_previous_text": False,
             },
         ),
     )
