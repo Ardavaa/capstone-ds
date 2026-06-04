@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
-import { saveRecordingToSession } from "@/app/lib/analysis";
-
-const QUESTIONS = [
-  "Tell me about yourself and why you're applying for this role.",
-  "Tell me about a time you had to debug a complex production issue. Walk me through your process.",
-  "How do you approach system design for a high-traffic application?",
-];
+import {
+  DEFAULT_SIMULATION_CONFIG,
+  detectFrameEmotion,
+  emotionBorderColor,
+  type FrameDetection,
+  loadSimulationConfig,
+  saveRecordingToSession,
+  STORAGE_KEYS,
+} from "@/app/lib/analysis";
 
 // ─── Icons ─────────────────────────────────────────────────────────────────
 
@@ -76,12 +78,30 @@ function IconUser() {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+function subscribeToStorage(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
+function getSimulationSnapshot(): string {
+  return [
+    sessionStorage.getItem(STORAGE_KEYS.simulationConfig) ?? "",
+    sessionStorage.getItem(STORAGE_KEYS.questionTopic) ?? "",
+  ].join("\n");
+}
+
+
+
 export default function RecordingPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const detectBusyRef = useRef(false);
+  const lastDetectionRef = useRef<FrameDetection | null>(null);
 
   const [currentQ, setCurrentQ] = useState(1); // 1-indexed
   const [elapsed, setElapsed] = useState(0);
@@ -92,6 +112,122 @@ export default function RecordingPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [liveEmotion, setLiveEmotion] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number>(16 / 9);
+
+  function handleLoadedMetadata() {
+    const video = videoRef.current;
+    if (video) {
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (w && h) {
+        setAspectRatio(w / h);
+      }
+    }
+  }
+  const simulationSnapshot = useSyncExternalStore(
+    subscribeToStorage,
+    getSimulationSnapshot,
+    () => "",
+  );
+  const simulationConfig = useMemo(
+    () => (simulationSnapshot ? loadSimulationConfig() : DEFAULT_SIMULATION_CONFIG),
+    [simulationSnapshot],
+  );
+
+  // ── Direct paint: raw YOLO bbox → canvas, no smoothing ──────────────────
+  function _paintOverlay(detection: FrameDetection | null) {
+    const canvas = overlayRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    canvas.width = Math.round(rect.width);
+    canvas.height = Math.round(rect.height);
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!detection?.bbox) return;
+
+    const { x, y, w, h } = detection.bbox;
+    const bx = x * canvas.width;
+    const by = y * canvas.height;
+    const bw = w * canvas.width;
+    const bh = h * canvas.height;
+    const color = emotionBorderColor(detection.emotion);
+
+    // Full rectangle — YOLO native style
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(bx, by, bw, bh);
+
+    // Filled label chip at top-left of box — YOLO native style
+    const label = `${detection.emotion.toUpperCase()} ${Math.round(detection.confidence * 100)}%`;
+    ctx.font = "bold 13px Arial, Helvetica, sans-serif";
+    const textW = ctx.measureText(label).width;
+    const labelH = 20;
+    const PAD = 5;
+    const chipY = by >= labelH ? by - labelH : by;
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, chipY, textW + PAD * 2, labelH);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(label, bx + PAD, chipY + labelH - 5);
+  }
+
+  const paintOverlayRef = useRef(_paintOverlay);
+  useEffect(() => { paintOverlayRef.current = _paintOverlay; });
+
+  // Repaint on resize so bbox stays aligned with the container
+  useEffect(() => {
+    const onResize = () => paintOverlayRef.current(lastDetectionRef.current);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // ── Server poll: capture frame → backend → draw raw bbox immediately ─────
+  useEffect(() => {
+    if (!isRecording || !cameraOn || paused) return;
+
+    const POLL_INTERVAL_MS = 300;
+    const off = document.createElement("canvas");
+    const CAPTURE_WIDTH = 320;
+
+    async function poll() {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || detectBusyRef.current) return;
+
+      detectBusyRef.current = true;
+      try {
+        const aspect = (video.videoHeight || 480) / (video.videoWidth || 640);
+        off.width  = CAPTURE_WIDTH;
+        off.height = Math.round(CAPTURE_WIDTH * aspect);
+        const offCtx = off.getContext("2d");
+        if (!offCtx) return;
+        offCtx.drawImage(video, 0, 0, off.width, off.height);
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+          off.toBlob((b) => resolve(b), "image/jpeg", 0.75);
+        });
+        if (!blob) return;
+
+        const detection = await detectFrameEmotion(blob);
+        lastDetectionRef.current = detection;
+        paintOverlayRef.current(detection);
+        setLiveEmotion(detection.bbox ? detection.emotion : null);
+      } catch {
+        paintOverlayRef.current(null);
+        setLiveEmotion(null);
+      } finally {
+        detectBusyRef.current = false;
+      }
+    }
+
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording, cameraOn, paused]);
 
   // Start webcam + mic
   useEffect(() => {
@@ -140,10 +276,10 @@ export default function RecordingPage() {
 
   // Recording timer
   useEffect(() => {
-    if (paused) return;
+    if (!isRecording || paused) return;
     const id = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
-  }, [paused]);
+  }, [isRecording, paused]);
 
   function formatTime(s: number) {
     const hh = String(Math.floor(s / 3600)).padStart(2, "0");
@@ -201,16 +337,32 @@ export default function RecordingPage() {
       }
     };
 
-    if (recorder.state === "recording") {
+    if (recorder.state === "recording" || recorder.state === "paused") {
       recorder.stop();
     }
   }
 
   function handlePause() {
-    setPaused((v) => !v);
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === "inactive") return;
+
+    try {
+      if (recorder.state === "recording") {
+        recorder.pause();
+        setPaused(true);
+        return;
+      }
+      if (recorder.state === "paused") {
+        recorder.resume();
+        setPaused(false);
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unable to pause recording.");
+    }
   }
 
-  const questionText = QUESTIONS[currentQ - 1] ?? QUESTIONS[0];
+  const questions = simulationConfig.questions;
+  const questionText = questions[currentQ - 1] ?? questions[0];
 
   return (
     <div className="flex h-full flex-col bg-[#0f1117]">
@@ -219,8 +371,8 @@ export default function RecordingPage() {
         {/* REC + timer */}
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-[1.5px] text-[#3a8377]">
-            <span className="size-2 animate-pulse rounded-full bg-[#c75240]" />
-            [ REC ]
+            <span className={`size-2 rounded-full ${paused ? "bg-[#c9a227]" : "animate-pulse bg-[#c75240]"}`} />
+            {paused ? "[ PAUSED ]" : "[ REC ]"}
           </span>
           <span className="font-mono text-[13px] tracking-[1px] text-[#faf7f2]">
             {formatTime(elapsed)}
@@ -229,59 +381,82 @@ export default function RecordingPage() {
 
         {/* Title */}
         <span className="text-[13px] font-medium uppercase tracking-[1.5px] text-[#faf7f2]">
-          SW Engineer Interview
+          {simulationConfig.categoryLabel} Interview
         </span>
 
         {/* Progress */}
         <span className="text-[11px] uppercase tracking-[1.5px] text-[#bfbfbf]">
-          [ Q {currentQ} / {QUESTIONS.length} ]
+          [ Q {currentQ} / {questions.length} ]
         </span>
       </header>
 
       {/* ── Main content ── */}
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-6 overflow-hidden">
 
-        {/* Video feed */}
-        <div className="relative w-full max-w-[660px] overflow-hidden rounded-2xl bg-[#1a1f2e]" style={{ aspectRatio: "16/9" }}>
-          {/* Status badges */}
-          <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-            <span className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
-              <span className="size-1.5 rounded-full bg-[#3a8377]" /> HD
-            </span>
-            <span className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
-              🎤 {micOn ? "ON" : "OFF"}
-            </span>
+        {/* Video feed — wrapper keeps canvas outside overflow-hidden so bbox isn't clipped */}
+        <div
+          ref={containerRef}
+          className="relative w-full max-w-[660px]"
+          style={{ aspectRatio }}
+        >
+          {/* Inner clip container (rounded corners, bg) */}
+          <div className="absolute inset-0 overflow-hidden rounded-2xl bg-[#1a1f2e]">
+            {/* Status badges */}
+            <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+              <span className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
+                <span className="size-1.5 rounded-full bg-[#3a8377]" /> HD
+              </span>
+              <span className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
+                🎤 {micOn ? "ON" : "OFF"}
+              </span>
+            </div>
+
+            {/* Video element */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={handleLoadedMetadata}
+              className={`size-full object-cover ${!cameraOn ? "hidden" : ""}`}
+            />
+
+            {/* Fallback silhouette when cam is off or loading */}
+            {!cameraOn && (
+              <div className="flex size-full items-center justify-center text-white/20">
+                <IconUser />
+              </div>
+            )}
+
+            {/* Media error overlay */}
+            {(mediaError || saveError) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center">
+                <p className="text-[12px] uppercase tracking-[1px] text-[#c75240]">
+                  {mediaError ?? saveError}
+                </p>
+              </div>
+            )}
+
+            {/* Name badge */}
+            <div className="absolute bottom-3 left-3 rounded bg-black/60 px-3 py-1 text-[11px] uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
+              Candidate preview
+            </div>
           </div>
 
-          {/* Video element */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`size-full object-cover ${!cameraOn ? "hidden" : ""}`}
-          />
-
-          {/* Fallback silhouette when cam is off or loading */}
-          {!cameraOn && (
-            <div className="flex size-full items-center justify-center text-white/20">
-              <IconUser />
-            </div>
+          {/* Canvas overlay is OUTSIDE overflow-hidden so bbox rect is never clipped */}
+          {cameraOn && (
+            <canvas
+              ref={overlayRef}
+              className="pointer-events-none absolute inset-0"
+              style={{ width: "100%", height: "100%" }}
+            />
           )}
 
-          {/* Media error overlay */}
-          {(mediaError || saveError) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center">
-              <p className="text-[12px] uppercase tracking-[1px] text-[#c75240]">
-                {mediaError ?? saveError}
-              </p>
+          {liveEmotion && cameraOn && (
+            <div className="absolute right-3 top-3 z-20 rounded bg-black/60 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
+              {liveEmotion}
             </div>
           )}
-
-          {/* Name badge */}
-          <div className="absolute bottom-3 left-3 rounded bg-black/60 px-3 py-1 text-[11px] uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
-            Rafif R.
-          </div>
         </div>
 
         {/* Question card */}
@@ -301,7 +476,7 @@ export default function RecordingPage() {
           </div>
 
           {/* Question navigation */}
-          {QUESTIONS.length > 1 && (
+          {questions.length > 1 && (
             <div className="mt-4 flex items-center justify-end gap-2 border-t border-white/10 pt-3">
               <button
                 type="button"
@@ -313,8 +488,8 @@ export default function RecordingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setCurrentQ((q) => Math.min(QUESTIONS.length, q + 1))}
-                disabled={currentQ === QUESTIONS.length}
+                onClick={() => setCurrentQ((q) => Math.min(questions.length, q + 1))}
+                disabled={currentQ === questions.length}
                 className="text-[11px] uppercase tracking-[1px] text-[#bfbfbf] disabled:opacity-30 hover:text-[#faf7f2]"
               >
                 Next →
@@ -370,6 +545,7 @@ export default function RecordingPage() {
           <button
             type="button"
             onClick={handlePause}
+            disabled={!isRecording || isSaving}
             title={paused ? "Resume" : "Pause"}
             className={`flex size-12 items-center justify-center rounded-full transition-colors ${
               paused
@@ -383,8 +559,9 @@ export default function RecordingPage() {
           {/* Settings */}
           <button
             type="button"
-            title="Settings"
-            className="flex size-12 items-center justify-center rounded-full bg-white/10 text-[#faf7f2] hover:bg-white/20 transition-colors"
+            disabled
+            title="Settings unavailable in this demo"
+            className="flex size-12 cursor-not-allowed items-center justify-center rounded-full bg-white/5 text-white/25 transition-colors"
           >
             <IconSliders />
           </button>

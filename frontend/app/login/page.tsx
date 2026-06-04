@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import AppIcon from "../components/AppIcon";
 import AuthVisualPanel from "../components/AuthVisualPanel";
-
-const ARROW_RIGHT = "https://www.figma.com/api/mcp/asset/c05e7c5f-6f08-4bb2-9e87-9575b9605fbf";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,7 +39,9 @@ export default function LoginPage() {
         </h1>
 
         {/* Subtitle */}
-        <p className="mb-12 text-[13px] text-[#bfbfbf]">Continue where you left off.</p>
+        <p className="mb-12 text-[13px] text-[#bfbfbf]">
+          Local demo mode only. Accounts are not persisted yet.
+        </p>
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
           {/* Email */}
@@ -52,7 +53,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="rafif@student.telkom.ac.id"
+              placeholder="you@university.ac.id"
               className="w-full border border-[#0a0a0a] bg-[#faf7f2] px-[15px] py-[13px] text-[13px] text-[#0a0a0a] placeholder:text-[#757575] focus:outline-none"
             />
           </div>
@@ -84,9 +85,9 @@ export default function LoginPage() {
                 Remember me
               </span>
             </label>
-            <a href="#" className="text-[11px] uppercase tracking-[0.55px] text-[#0a0a0a] underline">
-              Forgot password?
-            </a>
+            <span className="text-[11px] uppercase tracking-[0.55px] text-[#bfbfbf]">
+              Password reset unavailable
+            </span>
           </div>
 
           {/* Submit */}
@@ -94,8 +95,8 @@ export default function LoginPage() {
             type="submit"
             className="flex w-full items-center justify-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] hover:bg-[#1a1a1a]"
           >
-            Sign in
-            <img src={ARROW_RIGHT} alt="" className="size-4" />
+            Continue locally
+            <AppIcon name="arrow-right" className="size-4" />
           </button>
 
           {/* Divider */}
@@ -110,9 +111,10 @@ export default function LoginPage() {
           {/* Google */}
           <button
             type="button"
-            className="w-full border border-[#0a0a0a] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#0a0a0a] hover:bg-black/5"
+            disabled
+            className="w-full cursor-not-allowed border border-[#bfbfbf] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#bfbfbf]"
           >
-            Google
+            Google unavailable
           </button>
         </form>
 

@@ -19,3 +19,35 @@ dependencies = [
     "ultralytics>=8.4.52",
     "uvicorn>=0.47.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "ruff>=0.13.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-q"
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    ".",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-exclude = [
+    ".hf_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",
+]
+ignore = [
+    "F401",
+    "F841",
+]

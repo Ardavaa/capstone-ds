@@ -1,12 +1,6 @@
 import Link from "next/link";
 
-// Figma asset URLs — valid 7 days from 2026-05-22
-const ASSET = {
-  play:     "https://www.figma.com/api/mcp/asset/a83ce9c2-ab79-4432-8119-ec1fc4d0a07c",
-  eye:      "https://www.figma.com/api/mcp/asset/ab541012-035e-446b-abfe-e2be7d08dbed",
-  activity: "https://www.figma.com/api/mcp/asset/9ac3c41d-e963-4c59-9ce2-c0184c89f467",
-  target:   "https://www.figma.com/api/mcp/asset/ce43c71c-f0d8-415d-a6d5-92019de2e5e8",
-};
+import AppIcon, { type IconName } from "@/app/components/AppIcon";
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
@@ -19,7 +13,7 @@ function Tag({ label }: { label: string }) {
 }
 
 type FeatureCardProps = {
-  icon: string;
+  icon: IconName;
   num: string;
   title: string;
   description: string;
@@ -36,7 +30,7 @@ function FeatureCard({ icon, num, title, description, tags, borderRight = true, 
       } ${paddingLeft ? "pl-8" : ""} ${borderRight ? "pr-8" : "pl-8"}`}
     >
       <div className="flex size-10 items-center justify-center border border-[#0a0a0a] p-px">
-        <img src={icon} alt="" className="size-5" />
+        <AppIcon name={icon} className="size-5" />
       </div>
 
       <p className="pt-[9px] text-[11px] tracking-[1.1px] text-[#bfbfbf]">{num}</p>
@@ -134,14 +128,16 @@ export default function LandingPage() {
             href="/simulation/setup"
             className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] hover:bg-[#1a1a1a]"
           >
-            <img src={ASSET.play} alt="" className="size-4" />
+            <AppIcon name="play" className="size-4 text-[#faf7f2]" />
             Start simulation
           </Link>
           <button
             type="button"
-            className="border border-[#0a0a0a] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#0a0a0a] hover:bg-black/5"
+            disabled
+            title="Demo video is not implemented yet"
+            className="cursor-not-allowed border border-[#bfbfbf] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#bfbfbf]"
           >
-            Watch demo
+            Demo unavailable
           </button>
           <span className="pl-4 text-[11px] uppercase tracking-[1.1px] text-[#bfbfbf]">
             ~ 5 min / session
@@ -153,16 +149,16 @@ export default function LandingPage() {
       <section id="methodology" className="border-b border-[#0a0a0a] px-12 py-12">
         <div className="grid grid-cols-3">
           <FeatureCard
-            icon={ASSET.eye}
+            icon="eye"
             num="[ 01 / VISUAL ]"
             title="Body. Face. Eyes."
             description="Posture tracking, expression stability, eye contact ratio. Surface the confidence signals that interviewers register but rarely articulate."
-            tags={["MediaPipe", "YOLO5Face", "FER+"]}
+            tags={["Face Detection", "YOLOv8", "OpenCV"]}
             borderRight
             paddingLeft={false}
           />
           <FeatureCard
-            icon={ASSET.activity}
+            icon="activity"
             num="[ 02 / AUDIO ]"
             title="Voice as data."
             description="Prosody, pacing, pauses, filler words. Measured frame by frame. Speaking rate in WPM. Intonation curves. Disfluency counts."
@@ -171,7 +167,7 @@ export default function LandingPage() {
             paddingLeft
           />
           <FeatureCard
-            icon={ASSET.target}
+            icon="target"
             num="[ 03 / CONTENT ]"
             title="Words that fit."
             description="Semantic alignment between answer and question. Argument structure. Relevance scoring. Contextual coherence."

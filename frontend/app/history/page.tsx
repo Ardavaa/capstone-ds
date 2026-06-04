@@ -1,78 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
-// ─── Assets ──────────────────────────────────────────────────────────────────
-
-const ASSET = {
-  dashboard:  "https://www.figma.com/api/mcp/asset/4bcb7c45-a9db-46db-bbb3-cfd882d45448",
-  plus:       "https://www.figma.com/api/mcp/asset/533903f1-0038-4f90-88fa-1916a48695d3",
-  clock:      "https://www.figma.com/api/mcp/asset/ca69dd40-1eeb-4159-8ae1-82113b6b892c",
-  file:       "https://www.figma.com/api/mcp/asset/1adfbb1f-b6af-40ff-ad19-9f40973309dd",
-  settings:   "https://www.figma.com/api/mcp/asset/307b7641-0093-4f40-bd02-fc2a8cdc00d6",
-  menu:       "https://www.figma.com/api/mcp/asset/b732eccc-6f91-46c8-8a97-480bbb96e9f9",
-  user:       "https://www.figma.com/api/mcp/asset/8d2d9125-0ce3-4d70-8bfc-9a74a1c87d4a",
-  arrowRight: "https://www.figma.com/api/mcp/asset/3a2bedd0-d93d-4a22-9996-13ed40427b9a",
-};
+import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import {
+  formatDuration,
+  selectSession,
+  STORAGE_KEYS,
+  type SessionRecord,
+} from "@/app/lib/analysis";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Category = "TECHNICAL" | "BEHAVIORAL" | "CASE" | "GENERAL";
-type Filter   = "ALL" | Category;
+function sessionTrend(
+  sessions: SessionRecord[],
+  index: number,
+): "up" | "down" | "same" {
+  if (index >= sessions.length - 1) return "same";
+  const current = sessions[index].result.final_score;
+  const older = sessions[index + 1].result.final_score;
+  if (current > older) return "up";
+  if (current < older) return "down";
+  return "same";
+}
 
-type Session = {
-  id:       string;
-  name:     string;
-  category: Category;
-  questions: number;
-  duration: string;
-  date:     string;
-  score:    number;
-  trend:    "up" | "down" | "same";
-};
+function subscribeToStorage(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+function getHistorySnapshot(): string {
+  return localStorage.getItem(STORAGE_KEYS.history) ?? "";
+}
 
-const CAT_STYLE: Record<Category, { bg: string; border: string; color: string }> = {
-  TECHNICAL:  { bg: "#d6e8e2", border: "#3a8377", color: "#3a8377" },
-  BEHAVIORAL: { bg: "#ddd9f0", border: "#7e78d2", color: "#7e78d2" },
-  CASE:       { bg: "#f4d9d2", border: "#c75240", color: "#c75240" },
-  GENERAL:    { bg: "#f5f0e8", border: "#c9a227", color: "#c9a227" },
-};
-
-const SESSIONS: Session[] = [
-  { id: "1", name: "Software Engineer",      category: "TECHNICAL",  questions: 3, duration: "4:32", date: "2026.05.21", score: 87, trend: "up"   },
-  { id: "2", name: "Leadership Behavioral",  category: "BEHAVIORAL", questions: 3, duration: "5:14", date: "2026.05.19", score: 74, trend: "down" },
-  { id: "3", name: "Data Analyst Case",      category: "CASE",       questions: 3, duration: "6:08", date: "2026.05.17", score: 68, trend: "down" },
-  { id: "4", name: "General Introduction",   category: "GENERAL",    questions: 3, duration: "3:51", date: "2026.05.14", score: 81, trend: "up"   },
-  { id: "5", name: "System Design",          category: "TECHNICAL",  questions: 4, duration: "7:22", date: "2026.05.12", score: 79, trend: "up"   },
-  { id: "6", name: "Product Case Study",     category: "CASE",       questions: 3, duration: "5:49", date: "2026.05.09", score: 72, trend: "up"   },
-  { id: "7", name: "Conflict Resolution",    category: "BEHAVIORAL", questions: 3, duration: "4:05", date: "2026.05.06", score: 83, trend: "up"   },
-  { id: "8", name: "Frontend Engineering",   category: "TECHNICAL",  questions: 4, duration: "8:11", date: "2026.05.03", score: 76, trend: "same" },
-  { id: "9", name: "Self Introduction",      category: "GENERAL",    questions: 2, duration: "2:55", date: "2026.04.30", score: 88, trend: "up"   },
-  { id: "10", name: "API Design Interview",  category: "TECHNICAL",  questions: 3, duration: "5:37", date: "2026.04.27", score: 70, trend: "down" },
-  { id: "11", name: "Team Leadership",       category: "BEHAVIORAL", questions: 3, duration: "4:48", date: "2026.04.24", score: 77, trend: "up"   },
-  { id: "12", name: "Business Case",         category: "CASE",       questions: 3, duration: "6:33", date: "2026.04.21", score: 65, trend: "same" },
-];
-
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: "ALL",        label: "All" },
-  { value: "TECHNICAL",  label: "Technical" },
-  { value: "BEHAVIORAL", label: "Behavioral" },
-  { value: "CASE",       label: "Case" },
-  { value: "GENERAL",    label: "General" },
-];
+function parseHistorySnapshot(snapshot: string): SessionRecord[] {
+  if (!snapshot) return [];
+  try {
+    return JSON.parse(snapshot) as SessionRecord[];
+  } catch {
+    return [];
+  }
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SidebarItem({
   icon, label, active = false, href,
-}: { icon: string; label: string; active?: boolean; href?: string }) {
+}: { icon: IconName; label: string; active?: boolean; href?: string }) {
   const cls = `flex items-center gap-2.5 px-2.5 py-2.5 ${active ? "bg-[#0a0a0a]" : "hover:bg-black/5"}`;
   const inner = (
     <>
-      <img src={icon} alt="" className="size-3.5 shrink-0" />
+      <AppIcon name={icon} className="size-3.5 shrink-0" />
       <span className={`text-[12px] uppercase tracking-[0.6px] ${active ? "text-[#faf7f2]" : "text-[#0a0a0a]"}`}>
         {label}
       </span>
@@ -82,7 +61,7 @@ function SidebarItem({
   return <div className={cls}>{inner}</div>;
 }
 
-function TrendBadge({ trend, score }: { trend: Session["trend"]; score: number }) {
+function TrendBadge({ trend }: { trend: "up" | "down" | "same" }) {
   if (trend === "up")   return <span className="text-[10px] text-[#3a8377]">↑</span>;
   if (trend === "down") return <span className="text-[10px] text-[#c75240]">↓</span>;
   return <span className="text-[10px] text-[#bfbfbf]">—</span>;
@@ -100,14 +79,37 @@ function ScoreBar({ score }: { score: number }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const [filter, setFilter]   = useState<Filter>("ALL");
-  const [search, setSearch]   = useState("");
+  const [search, setSearch] = useState("");
+  const historySnapshot = useSyncExternalStore(
+    subscribeToStorage,
+    getHistorySnapshot,
+    () => "",
+  );
+  const sessions = useMemo(
+    () => parseHistorySnapshot(historySnapshot),
+    [historySnapshot],
+  );
 
-  const visible = SESSIONS.filter((s) => {
-    const matchCat  = filter === "ALL" || s.category === filter;
-    const matchText = s.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchText;
-  });
+  const visible = useMemo(() => {
+    return sessions.filter((s) =>
+      s.questionTopic.toLowerCase().includes(search.toLowerCase()),
+    );
+  }, [sessions, search]);
+
+  const summary = useMemo(() => {
+    if (sessions.length === 0) {
+      return { avgScore: "—", best: "—", total: "0", avgDuration: "—" };
+    }
+    const scores = sessions.map((s) => s.result.final_score);
+    const durations = sessions.map((s) => s.result.delivery_metrics.duration_sec);
+    const avgSec = durations.reduce((a, b) => a + b, 0) / durations.length;
+    return {
+      avgScore: String(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)),
+      best: String(Math.max(...scores)),
+      total: String(sessions.length),
+      avgDuration: formatDuration(avgSec),
+    };
+  }, [sessions]);
 
   return (
     <div className="flex h-full overflow-hidden border border-[#0a0a0a] bg-[#faf7f2]">
@@ -122,19 +124,19 @@ export default function HistoryPage() {
           <div className="px-2 pb-1.5 pt-3">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Workspace</span>
           </div>
-          <SidebarItem icon={ASSET.dashboard} label="Dashboard"      href="/dashboard" />
-          <SidebarItem icon={ASSET.plus}      label="New Simulation"  href="/simulation/setup" />
+          <SidebarItem icon="dashboard" label="Dashboard" href="/dashboard" />
+          <SidebarItem icon="plus" label="New Simulation" href="/simulation/setup" />
 
           <div className="px-2 pb-1.5 pt-3.5">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Library</span>
           </div>
-          <SidebarItem icon={ASSET.clock} label="History"      active href="/history" />
-          <SidebarItem icon={ASSET.file}  label="Report Cards"        href="/report-cards" />
+          <SidebarItem icon="clock" label="History" active href="/history" />
+          <SidebarItem icon="file" label="Report Cards" href="/report-cards" />
 
           <div className="px-2 pb-1.5 pt-3.5">
             <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Account</span>
           </div>
-          <SidebarItem icon={ASSET.settings} label="Settings" />
+          <SidebarItem icon="settings" label="Settings" />
         </nav>
 
         <div className="border-t border-[#0a0a0a] px-4 py-4">
@@ -142,15 +144,15 @@ export default function HistoryPage() {
             type="button"
             className="mb-3 flex h-9 w-full items-center justify-center border border-[#0a0a0a] bg-white hover:bg-black/5"
           >
-            <img src={ASSET.menu} alt="" className="size-3.5" />
+            <AppIcon name="menu" className="size-3.5" />
           </button>
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a]">
-              <img src={ASSET.user} alt="" className="size-3.5" />
+              <AppIcon name="user" className="size-3.5 text-[#faf7f2]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a]">Rafif R.</p>
-              <p className="truncate text-[10px] text-[#bfbfbf]">rafif@telkom</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a]">Local user</p>
+              <p className="truncate text-[10px] text-[#bfbfbf]">Demo mode</p>
             </div>
           </div>
         </div>
@@ -165,7 +167,7 @@ export default function HistoryPage() {
               Session History
             </h1>
             <p className="mt-2 text-[11px] uppercase tracking-[1.1px] text-[#bfbfbf]">
-              [ {SESSIONS.length} sessions · Sorted by date ]
+              [ {sessions.length} session{sessions.length !== 1 ? "s" : ""} · Sorted by date ]
             </p>
           </div>
           <Link
@@ -196,24 +198,6 @@ export default function HistoryPage() {
             />
           </div>
 
-          {/* Category filters */}
-          <div className="flex gap-1">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={`border px-3 py-2 text-[10px] font-bold uppercase tracking-[1px] transition-colors ${
-                  filter === f.value
-                    ? "border-[#0a0a0a] bg-[#0a0a0a] text-[#faf7f2]"
-                    : "border-[#0a0a0a] bg-white text-[#0a0a0a] hover:bg-black/5"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
           {/* Count */}
           <span className="ml-auto text-[11px] uppercase tracking-[1px] text-[#bfbfbf]">
             {visible.length} result{visible.length !== 1 ? "s" : ""}
@@ -235,8 +219,16 @@ export default function HistoryPage() {
             </div>
           ) : (
             visible.map((s, i) => {
-              const cat = CAT_STYLE[s.category];
-              const scoreColor = s.score >= 80 ? "#3a8377" : s.score >= 70 ? "#c9a227" : "#c75240";
+              const score = s.result.final_score;
+              const scoreColor = score >= 80 ? "#3a8377" : score >= 70 ? "#c9a227" : "#c75240";
+              const name =
+                s.questionTopic.length > 48
+                  ? `${s.questionTopic.slice(0, 48)}…`
+                  : s.questionTopic;
+              const duration = formatDuration(s.result.delivery_metrics.duration_sec);
+              const idx = sessions.findIndex((x) => x.id === s.id);
+              const trend = sessionTrend(sessions, idx);
+
               return (
                 <div
                   key={s.id}
@@ -244,49 +236,45 @@ export default function HistoryPage() {
                     i < visible.length - 1 ? "border-b border-[#f0ece4]" : ""
                   }`}
                 >
-                  {/* Name + meta */}
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[13px] font-medium uppercase tracking-[0.26px] text-[#0a0a0a]">
-                      {s.name}
+                      {name}
                     </span>
                     <span className="text-[10px] tracking-[0.5px] text-[#bfbfbf]">
-                      {s.questions} Q · {s.duration}
+                      {duration} · {s.result.delivery_metrics.wpm} WPM
                     </span>
                   </div>
 
-                  {/* Category badge */}
                   <div>
-                    <span
-                      className="inline-block border px-2.5 py-[4px] text-[10px] font-bold uppercase tracking-[1px]"
-                      style={{ backgroundColor: cat.bg, borderColor: cat.border, color: cat.color }}
-                    >
-                      {s.category}
+                    <span className="inline-block border border-[#3a8377] bg-[#d6e8e2] px-2.5 py-[4px] text-[10px] font-bold uppercase tracking-[1px] text-[#3a8377]">
+                      {s.categoryLabel ?? "SIMULATION"}
                     </span>
                   </div>
 
-                  {/* Questions */}
-                  <span className="text-[12px] tracking-[0.6px] text-[#0a0a0a]">{s.questions} Q</span>
+                  <span className="text-[12px] tracking-[0.6px] text-[#0a0a0a]">
+                    {s.result.delivery_metrics.filler_count} fillers
+                  </span>
 
-                  {/* Date */}
                   <span className="text-[11px] tracking-[0.55px] text-[#0a0a0a]">{s.date}</span>
 
-                  {/* Score + bar */}
                   <div className="flex flex-col gap-1">
                     <span
                       className="text-[18px] font-bold leading-none tracking-[-0.4px]"
                       style={{ color: scoreColor }}
                     >
-                      {s.score}
+                      {score}
                     </span>
-                    <ScoreBar score={s.score} />
+                    <ScoreBar score={score} />
                   </div>
 
-                  {/* Trend */}
-                  <TrendBadge trend={s.trend} score={s.score} />
+                  <TrendBadge trend={trend} />
 
-                  {/* Arrow link */}
-                  <Link href="/report-cards" className="flex items-center justify-center hover:opacity-60">
-                    <img src={ASSET.arrowRight} alt="View report" className="size-3.5" />
+                  <Link
+                    href={`/report-cards?session=${encodeURIComponent(s.id)}`}
+                    onClick={() => selectSession(s)}
+                    className="flex items-center justify-center hover:opacity-60"
+                  >
+                    <AppIcon name="arrow-right" className="size-3.5" title="View report" />
                   </Link>
                 </div>
               );
@@ -297,10 +285,10 @@ export default function HistoryPage() {
         {/* Summary strip */}
         <div className="mt-6 flex gap-6 border border-[#e8e4dc] bg-white px-6 py-4">
           {[
-            { label: "Avg Score",       value: Math.round(SESSIONS.reduce((a, s) => a + s.score, 0) / SESSIONS.length).toString() },
-            { label: "Best Session",    value: Math.max(...SESSIONS.map((s) => s.score)).toString() },
-            { label: "Total Sessions",  value: SESSIONS.length.toString() },
-            { label: "Avg Duration",    value: "5:02" },
+            { label: "Avg Score", value: summary.avgScore },
+            { label: "Best Session", value: summary.best },
+            { label: "Total Sessions", value: summary.total },
+            { label: "Avg Duration", value: summary.avgDuration },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-1 flex-col gap-1 border-r border-[#f0ece4] last:border-r-0 pr-6 last:pr-0">
               <span className="text-[10px] uppercase tracking-[1.5px] text-[#bfbfbf]">{stat.label}</span>

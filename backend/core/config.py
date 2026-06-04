@@ -3,9 +3,34 @@
 from pathlib import Path
 from typing import Final
 
+# ─── Upload and extraction limits ────────────────────────────────────────────
+
+MAX_UPLOAD_BYTES: Final[int] = 100 * 1024 * 1024
+MAX_FRAME_UPLOAD_BYTES: Final[int] = 5 * 1024 * 1024
+FFMPEG_TIMEOUT_SEC: Final[float] = 60.0
+ALLOWED_UPLOAD_EXTENSIONS: Final[frozenset[str]] = frozenset(
+    {".mp4", ".mov", ".m4v", ".webm", ".wav", ".mp3", ".m4a", ".aac", ".ogg"},
+)
+ALLOWED_UPLOAD_MIME_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "video/mp4",
+        "video/quicktime",
+        "video/x-m4v",
+        "video/webm",
+        "audio/wav",
+        "audio/wave",
+        "audio/x-wav",
+        "audio/mpeg",
+        "audio/mp4",
+        "audio/aac",
+        "audio/ogg",
+    },
+)
+ALLOWED_FRAME_MIME_TYPES: Final[frozenset[str]] = frozenset({"image/jpeg", "image/png"})
+
 # ─── Model IDs ───────────────────────────────────────────────────────────────
 
-WHISPER_MODEL_ID: Final[str] = "cobrayyxx/whisper-small-indo-eng"
+WHISPER_MODEL_ID: Final[str] = "openai/whisper-tiny"
 SBERT_MODEL_ID: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
 EMOTION_MODEL_ID: Final[str] = "superb/wav2vec2-base-superb-er"
 
@@ -24,18 +49,17 @@ WEIGHT_NON_VERBAL: Final[float] = 0.30
 
 # ─── Delivery analysis ───────────────────────────────────────────────────────
 
-FILLER_WORDS: Final[tuple[str, ...]] = (
+_FILLER_FALLBACK: Final[tuple[str, ...]] = (
     "um",
     "uh",
+    "er",
+    "ah",
     "eh",
     "hmm",
     "hm",
     "kinda",
-    "like",
     "you know",
     "basically",
-    "actually",
-    "literally",
     "jadi",
     "gitu",
     "kan",
@@ -44,11 +68,53 @@ FILLER_WORDS: Final[tuple[str, ...]] = (
     "anu",
 )
 
+
+def _load_filler_words() -> tuple[str, ...]:
+    """Load filler phrases from ``ml_pipeline/audio/filler.txt`` (comma-separated)."""
+
+    path = (
+        Path(__file__).resolve().parent.parent
+        / "ml_pipeline"
+        / "audio"
+        / "filler.txt"
+    )
+    try:
+        text = path.read_text(encoding="utf-8")
+        seen: set[str] = set()
+        words: list[str] = []
+        for raw in text.split(","):
+            word = raw.strip().lower()
+            if word and word not in seen:
+                seen.add(word)
+                words.append(word)
+        if words:
+            return tuple(sorted(words, key=len, reverse=True))
+    except OSError:
+        pass
+    return _FILLER_FALLBACK
+
+
+FILLER_WORDS: Final[tuple[str, ...]] = _load_filler_words()
+
 IDEAL_WPM: Final[float] = 140.0
 WPM_TOLERANCE: Final[float] = 60.0
 
 # Pause detection (librosa.effects.split top_db)
 PAUSE_TOP_DB: Final[int] = 30
+
+# ─── HuggingFace local model cache ───────────────────────────────────────────
+# All downloaded model weights are stored here so they persist across
+# venv rebuilds and never require re-downloading from the internet.
+# Must be set via env-var BEFORE transformers/sentence-transformers are imported.
+
+import os as _os
+
+HF_CACHE_DIR: Final[Path] = Path(__file__).resolve().parent.parent / ".hf_cache"
+HF_CACHE_DIR.mkdir(exist_ok=True)
+
+_os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR))
+_os.environ.setdefault("TRANSFORMERS_CACHE", str(HF_CACHE_DIR / "hub"))
+_os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", str(HF_CACHE_DIR / "sentence_transformers"))
 
 # ─── Video emotion (facial expression) ──────────────────────────────────────
 
@@ -59,6 +125,17 @@ VIDEO_EMOTION_MODEL_PATH: Final[Path] = (
     / "models"
     / "best.pt"
 )
+
+# YOLOv8n face detection model (task=detect, class=FACE).
+# Replaces the Haar cascade — produces stable, accurate face bounding boxes.
+VIDEO_FACE_DETECTOR_MODEL_PATH: Final[Path] = (
+    Path(__file__).resolve().parent.parent
+    / "ml_pipeline"
+    / "video"
+    / "models"
+    / "yolov8n-face.pt"
+)
+
 VIDEO_FRAME_SAMPLE_FPS: Final[float] = 1.0
 VIDEO_FACE_DETECTION_CONFIDENCE: Final[float] = 0.5
 

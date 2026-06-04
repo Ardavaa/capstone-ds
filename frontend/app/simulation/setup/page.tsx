@@ -4,35 +4,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { setQuestionTopic } from "@/app/lib/analysis";
+import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import {
+  type CategoryId,
+  SIMULATION_CATEGORIES,
+  saveSimulationConfig,
+  type SimulationConfig,
+} from "@/app/lib/analysis";
 
-// Figma asset URLs — valid 7 days from 2026-05-22
-const ASSET = {
-  code:       "https://www.figma.com/api/mcp/asset/f616f157-027b-4199-a7a0-a7ef9dcabac7",
-  chart:      "https://www.figma.com/api/mcp/asset/d01232c9-5eee-44e6-b588-d4fbdd2fa11f",
-  briefcase:  "https://www.figma.com/api/mcp/asset/59f3bea5-4da7-46fd-ba77-37e8d7cff40c",
-  megaphone:  "https://www.figma.com/api/mcp/asset/3a42a07b-1a41-4d2f-8a0e-22f7f75c5e8a",
-  palette:    "https://www.figma.com/api/mcp/asset/2252fb98-204e-45a8-af2c-bd85e9999705",
-  message:    "https://www.figma.com/api/mcp/asset/723552c2-bd14-432c-ac10-7d50e7b40c93",
-  arrowRight: "https://www.figma.com/api/mcp/asset/38d9321d-ed34-4457-a5a4-a9751057d1b4",
-};
-
-type CategoryId = "sw-engineer" | "data-analyst" | "product-mgr" | "marketing" | "ui-ux" | "general";
 
 type Category = {
   id: CategoryId;
-  icon: string;
+  icon: IconName;
   name: string;
   meta: string;
 };
 
 const CATEGORIES: Category[] = [
-  { id: "sw-engineer",  icon: ASSET.code,      name: "SW Engineer",  meta: "Technical · 3 Q" },
-  { id: "data-analyst", icon: ASSET.chart,     name: "Data Analyst", meta: "Case · 3 Q" },
-  { id: "product-mgr",  icon: ASSET.briefcase, name: "Product Mgr",  meta: "Behavioral · 3 Q" },
-  { id: "marketing",    icon: ASSET.megaphone,  name: "Marketing",    meta: "Case · 3 Q" },
-  { id: "ui-ux",        icon: ASSET.palette,   name: "UI / UX",      meta: "Portfolio · 3 Q" },
-  { id: "general",      icon: ASSET.message,   name: "General",      meta: "Intro · 3 Q" },
+  { id: "sw-engineer", icon: "code", name: "SW Engineer", meta: "Technical · 3 Q" },
+  { id: "data-analyst", icon: "chart", name: "Data Analyst", meta: "Case · 3 Q" },
+  { id: "product-mgr", icon: "briefcase", name: "Product Mgr", meta: "Behavioral · 3 Q" },
+  { id: "marketing", icon: "megaphone", name: "Marketing", meta: "Case · 3 Q" },
+  { id: "ui-ux", icon: "palette", name: "UI / UX", meta: "Portfolio · 3 Q" },
+  { id: "general", icon: "message", name: "General", meta: "Intro · 3 Q" },
 ];
 
 // ─── Sub-components ────────────────────────────────────────────────────────
@@ -60,7 +54,7 @@ function CategoryCard({ category, selected, onClick }: CategoryCardProps) {
           selected ? "border-[#faf7f2]" : "border-[#0a0a0a]"
         }`}
       >
-        <img src={category.icon} alt="" className="size-5" />
+        <AppIcon name={category.icon} className="size-5" />
       </div>
 
       {/* Name */}
@@ -89,31 +83,39 @@ export default function SetupPage() {
 
   const canContinue = selectedId !== null || customTopic.trim().length > 0;
 
-  function buildQuestionTopic(): string {
+  function buildSimulationConfig(): SimulationConfig {
     const custom = customTopic.trim();
-    if (custom) return custom;
+    if (custom) {
+      return {
+        categoryId: "custom",
+        categoryLabel: "Custom Topic",
+        questionTopic: custom,
+        questions: [
+          `Introduce your background for this topic: ${custom}.`,
+          "Describe a relevant challenge you have handled and the steps you took.",
+          "What would you prioritize in your first 30 days for this role or context?",
+        ],
+      };
+    }
 
     const category = CATEGORIES.find((c) => c.id === selectedId);
     if (!category) {
-      return "software engineer technical interview problem solving";
+      return {
+        categoryId: "sw-engineer",
+        ...SIMULATION_CATEGORIES["sw-engineer"],
+      };
     }
 
-    const topicByCategory: Record<CategoryId, string> = {
-      "sw-engineer": "software engineer technical interview debugging system design backend",
-      "data-analyst": "data analyst case interview SQL analytics problem solving",
-      "product-mgr": "product manager behavioral interview leadership stakeholder communication",
-      marketing: "marketing case interview campaign strategy communication",
-      "ui-ux": "UI UX design portfolio interview product thinking usability",
-      general: "general job interview introduction communication career goals",
+    return {
+      categoryId: category.id,
+      ...SIMULATION_CATEGORIES[category.id],
     };
-
-    return topicByCategory[category.id];
   }
 
   function handleContinue() {
     if (!canContinue) return;
-    setQuestionTopic(buildQuestionTopic());
-    router.push("/simulation/recording");
+    saveSimulationConfig(buildSimulationConfig());
+    router.push("/simulation/preflight");
   }
 
   return (
@@ -218,8 +220,8 @@ export default function SetupPage() {
             onClick={handleContinue}
             className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] transition-colors hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:border-[#bfbfbf] disabled:bg-[#bfbfbf]"
           >
-            Continue to recording
-            <img src={ASSET.arrowRight} alt="" className="size-4" />
+            Continue to system check
+            <AppIcon name="arrow-right" className="size-4" />
           </button>
           </div>
         </div>

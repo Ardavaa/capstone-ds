@@ -2,23 +2,32 @@
 
 from __future__ import annotations
 
+import logging
 from functools import cache
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from core.config import DEFAULT_QUESTION_TOPIC, SBERT_MODEL_ID
+from core.config import DEFAULT_QUESTION_TOPIC, SBERT_MODEL_ID  # noqa: E402 – config sets HF_HOME
+
+log = logging.getLogger(__name__)
 
 
 @cache
 def get_sbert_model() -> SentenceTransformer:
     """Load and cache the multilingual sentence-transformer model.
 
+    The cache folder is controlled by ``SENTENCE_TRANSFORMERS_HOME`` set in
+    ``core.config`` so models persist in ``backend/.hf_cache/``.
+
     Returns:
         A cached ``SentenceTransformer`` instance.
     """
 
-    return SentenceTransformer(SBERT_MODEL_ID)
+    log.info("SBERT: loading model  model_id=%r", SBERT_MODEL_ID)
+    model = SentenceTransformer(SBERT_MODEL_ID)
+    log.info("SBERT: model ready")
+    return model
 
 
 def content_score(transcription: str, question_topic: str | None = None) -> int:
@@ -38,6 +47,7 @@ def content_score(transcription: str, question_topic: str | None = None) -> int:
 
     text = transcription.strip()
     if not text:
+        log.warning("SBERT: empty transcription, returning score=0")
         return 0
 
     topic = (question_topic or "").strip() or DEFAULT_QUESTION_TOPIC
@@ -48,4 +58,5 @@ def content_score(transcription: str, question_topic: str | None = None) -> int:
 
     # Map typical cosine range (~0.2–0.85) onto 0–100
     scaled = int(np.clip((similarity - 0.15) / 0.70 * 100, 0, 100))
+    log.info("SBERT: content score=%d  cosine_similarity=%.4f", scaled, similarity)
     return scaled

@@ -4,8 +4,48 @@ export const STORAGE_KEYS = {
   recording: "lumenRecording",
   recordingMeta: "lumenRecordingMeta",
   questionTopic: "lumenQuestionTopic",
+  simulationConfig: "lumenSimulationConfig",
   analysisResult: "lumenAnalysisResult",
+  history: "lumenHistory",
+  selectedSessionId: "lumenSelectedSessionId",
 } as const;
+
+// ─── IndexedDB helpers (used for large blob storage) ─────────────────────────
+
+const _IDB_NAME = "lumenStore";
+const _IDB_VERSION = 1;
+const _IDB_STORE = "blobs";
+
+function _openIdb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(_IDB_NAME, _IDB_VERSION);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(_IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function _idbPut(key: string, value: unknown): Promise<void> {
+  const db = await _openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(_IDB_STORE, "readwrite");
+    tx.objectStore(_IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function _idbGet<T>(key: string): Promise<T | null> {
+  const db = await _openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(_IDB_STORE, "readonly");
+    const req = tx.objectStore(_IDB_STORE).get(key);
+    req.onsuccess = () => resolve((req.result as T) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 export type DeliveryMetrics = {
   wpm: number;
@@ -14,6 +54,7 @@ export type DeliveryMetrics = {
   avg_pause_sec: number;
   longest_silence_sec: number;
   duration_sec: number;
+  filler_words_found: string[];
 };
 
 export type EmotionMetrics = {
@@ -25,6 +66,16 @@ export type EmotionMetrics = {
   chunks_analyzed: number;
 };
 
+export type VideoEmotionMetrics = {
+  dominant_emotion: string;
+  emotion_distribution: Record<string, number>;
+  stability_score: number;
+  nervous_rate: number;
+  non_verbal_score: number;
+  frames_analyzed: number;
+  frames_sampled: number;
+};
+
 export type AnalyzeResponse = {
   final_score: number;
   content_score: number;
@@ -33,6 +84,7 @@ export type AnalyzeResponse = {
   transcription: string;
   delivery_metrics: DeliveryMetrics;
   emotion_metrics: EmotionMetrics;
+  video_emotion_metrics: VideoEmotionMetrics;
   feedback: {
     content: string;
     delivery: string;
@@ -42,11 +94,127 @@ export type AnalyzeResponse = {
   file_size_bytes: number;
 };
 
+export type FrameDetection = {
+  emotion: string;
+  confidence: number;
+  bbox: { x: number; y: number; w: number; h: number } | null;
+};
+
+export type SessionRecord = {
+  id: string;
+  questionTopic: string;
+  date: string;
+  result: AnalyzeResponse;
+  categoryLabel?: string;
+  questions?: string[];
+};
+
 export type RecordingMeta = {
   mimeType: string;
   durationSec: number;
   recordedAt: string;
 };
+
+export type CategoryId =
+  | "sw-engineer"
+  | "data-analyst"
+  | "product-mgr"
+  | "marketing"
+  | "ui-ux"
+  | "general";
+
+export type SimulationConfig = {
+  categoryId: CategoryId | "custom";
+  categoryLabel: string;
+  questionTopic: string;
+  questions: string[];
+};
+
+export const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
+  categoryId: "sw-engineer",
+  categoryLabel: "SW Engineer",
+  questionTopic: "software engineer technical interview debugging system design backend",
+  questions: [
+    "Tell me about a complex technical problem you solved and the trade-offs you considered.",
+    "Walk me through how you would debug a slow production API.",
+    "How would you design a reliable high-traffic service for an interview scheduling product?",
+  ],
+};
+
+export const SIMULATION_CATEGORIES: Record<
+  CategoryId,
+  Omit<SimulationConfig, "categoryId">
+> = {
+  "sw-engineer": DEFAULT_SIMULATION_CONFIG,
+  "data-analyst": {
+    categoryLabel: "Data Analyst",
+    questionTopic: "data analyst case interview SQL analytics problem solving",
+    questions: [
+      "Tell me about an analysis you ran that changed a product or business decision.",
+      "How would you investigate a sudden drop in weekly active users?",
+      "Describe how you would design a dashboard for leadership to track interview platform health.",
+    ],
+  },
+  "product-mgr": {
+    categoryLabel: "Product Manager",
+    questionTopic: "product manager behavioral interview leadership stakeholder communication",
+    questions: [
+      "Tell me about a product decision where you had to balance user needs and business goals.",
+      "How would you prioritize features for an interview coaching platform with limited engineering time?",
+      "Describe a time you aligned stakeholders who disagreed on product direction.",
+    ],
+  },
+  marketing: {
+    categoryLabel: "Marketing",
+    questionTopic: "marketing case interview campaign strategy communication",
+    questions: [
+      "Tell me about a campaign you planned and how you measured whether it worked.",
+      "How would you position an AI interview coach for university students?",
+      "Describe how you would diagnose a campaign with high clicks but low conversion.",
+    ],
+  },
+  "ui-ux": {
+    categoryLabel: "UI / UX",
+    questionTopic: "UI UX design portfolio interview product thinking usability",
+    questions: [
+      "Walk me through a portfolio project and the user problem you were solving.",
+      "How would you improve the onboarding flow for a first-time interview practice user?",
+      "Tell me about a time usability research changed your design direction.",
+    ],
+  },
+  general: {
+    categoryLabel: "General",
+    questionTopic: "general job interview introduction communication career goals",
+    questions: [
+      "Tell me about yourself and what kind of role you are preparing for.",
+      "Describe a challenge you faced and how you handled it.",
+      "Why are you interested in this opportunity, and what strengths would you bring?",
+    ],
+  },
+};
+
+function _parseSimulationConfig(raw: string | null): SimulationConfig | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SimulationConfig>;
+    if (
+      typeof parsed.categoryLabel === "string" &&
+      typeof parsed.questionTopic === "string" &&
+      Array.isArray(parsed.questions) &&
+      parsed.questions.every((q) => typeof q === "string")
+    ) {
+      return {
+        categoryId: parsed.categoryId ?? "custom",
+        categoryLabel: parsed.categoryLabel,
+        questionTopic: parsed.questionTopic,
+        questions: parsed.questions,
+      } as SimulationConfig;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
@@ -56,66 +224,43 @@ export function getApiBaseUrl(): string {
   return API_BASE;
 }
 
-export async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Failed to read recording as data URL."));
-      }
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("FileReader failed."));
-    reader.readAsDataURL(blob);
-  });
-}
+export async function detectFrameEmotion(frameBlob: Blob): Promise<FrameDetection> {
+  const form = new FormData();
+  form.append("file", frameBlob, "frame.jpg");
 
-export function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(",");
-  // #region agent log
-  fetch('http://127.0.0.1:7523/ingest/db2e86cb-5d4e-4a13-9324-b4da1cb46e7e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b2f3ba'},body:JSON.stringify({sessionId:'b2f3ba',location:'analysis.ts:dataUrlToBlob',message:'split result',data:{dataUrlPrefix:dataUrl.slice(0,120),header,base64Prefix:(base64??'').slice(0,60),base64Length:(base64??'').length,totalCommas:(dataUrl.match(/,/g)||[]).length},timestamp:Date.now(),hypothesisId:'H-A',runId:'run1'})}).catch(()=>{});
-  // #endregion
-  const mime = header?.match(/:(.*?);/)?.[1] ?? "video/webm";
-  const binary = atob(base64 ?? "");
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
+  const response = await fetch(`${API_BASE}/api/detect-frame`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!response.ok) {
+    return { emotion: "neutral", confidence: 0, bbox: null };
   }
-  return new Blob([bytes], { type: mime });
+
+  return (await response.json()) as FrameDetection;
 }
 
 export async function saveRecordingToSession(
   blob: Blob,
   meta: Omit<RecordingMeta, "recordedAt"> & { recordedAt?: string },
 ): Promise<void> {
-  const dataUrl = await blobToDataUrl(blob);
-  try {
-    sessionStorage.setItem(STORAGE_KEYS.recording, dataUrl);
-    sessionStorage.setItem(
-      STORAGE_KEYS.recordingMeta,
-      JSON.stringify({
-        mimeType: meta.mimeType,
-        durationSec: meta.durationSec,
-        recordedAt: meta.recordedAt ?? new Date().toISOString(),
-      } satisfies RecordingMeta),
-    );
-  } catch {
-    throw new Error(
-      "Recording is too large for browser storage. Try a shorter clip (under ~1 minute).",
-    );
-  }
+  await _idbPut(STORAGE_KEYS.recording, blob);
+  sessionStorage.setItem(
+    STORAGE_KEYS.recordingMeta,
+    JSON.stringify({
+      mimeType: meta.mimeType,
+      durationSec: meta.durationSec,
+      recordedAt: meta.recordedAt ?? new Date().toISOString(),
+    } satisfies RecordingMeta),
+  );
 }
 
-export function loadRecordingFromSession(): {
+export async function loadRecordingFromSession(): Promise<{
   blob: Blob;
   meta: RecordingMeta | null;
-} | null {
-  const dataUrl = sessionStorage.getItem(STORAGE_KEYS.recording);
-  // #region agent log
-  fetch('http://127.0.0.1:7523/ingest/db2e86cb-5d4e-4a13-9324-b4da1cb46e7e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b2f3ba'},body:JSON.stringify({sessionId:'b2f3ba',location:'analysis.ts:loadRecordingFromSession',message:'sessionStorage read',data:{found:!!dataUrl,prefix:dataUrl?.slice(0,80),lengthKB:dataUrl?Math.round(dataUrl.length/1024):0},timestamp:Date.now(),hypothesisId:'H-B',runId:'run1'})}).catch(()=>{});
-  // #endregion
-  if (!dataUrl) return null;
+} | null> {
+  const blob = await _idbGet<Blob>(STORAGE_KEYS.recording);
+  if (!blob) return null;
 
   const metaRaw = sessionStorage.getItem(STORAGE_KEYS.recordingMeta);
   let meta: RecordingMeta | null = null;
@@ -127,7 +272,7 @@ export function loadRecordingFromSession(): {
     }
   }
 
-  return { blob: dataUrlToBlob(dataUrl), meta };
+  return { blob, meta };
 }
 
 export function getQuestionTopic(): string {
@@ -141,6 +286,34 @@ export function setQuestionTopic(topic: string): void {
   sessionStorage.setItem(STORAGE_KEYS.questionTopic, topic.trim());
 }
 
+export function saveSimulationConfig(config: SimulationConfig): void {
+  sessionStorage.setItem(STORAGE_KEYS.questionTopic, config.questionTopic.trim());
+  sessionStorage.setItem(STORAGE_KEYS.simulationConfig, JSON.stringify(config));
+}
+
+export function loadSimulationConfig(): SimulationConfig {
+  const config = _parseSimulationConfig(
+    sessionStorage.getItem(STORAGE_KEYS.simulationConfig),
+  );
+  if (config) return config;
+
+  const topic = getQuestionTopic();
+  if (topic !== DEFAULT_SIMULATION_CONFIG.questionTopic) {
+    return {
+      categoryId: "custom",
+      categoryLabel: "Custom Topic",
+      questionTopic: topic,
+      questions: [
+        `Introduce your background for this topic: ${topic}.`,
+        "Describe a relevant challenge you have handled and the steps you took.",
+        "What would you prioritize in your first 30 days for this role or context?",
+      ],
+    };
+  }
+
+  return DEFAULT_SIMULATION_CONFIG;
+}
+
 export function saveAnalysisResult(result: AnalyzeResponse): void {
   sessionStorage.setItem(STORAGE_KEYS.analysisResult, JSON.stringify(result));
 }
@@ -149,10 +322,73 @@ export function loadAnalysisResult(): AnalyzeResponse | null {
   const raw = sessionStorage.getItem(STORAGE_KEYS.analysisResult);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as AnalyzeResponse;
+    const parsed = JSON.parse(raw) as AnalyzeResponse;
+    if (!parsed.delivery_metrics.filler_words_found) {
+      parsed.delivery_metrics.filler_words_found = [];
+    }
+    if (!parsed.video_emotion_metrics) {
+      parsed.video_emotion_metrics = {
+        dominant_emotion: "neutral",
+        emotion_distribution: { neutral: 1 },
+        stability_score: 1,
+        nervous_rate: 0,
+        non_verbal_score: parsed.non_verbal_score,
+        frames_analyzed: 0,
+        frames_sampled: 0,
+      };
+    }
+    return parsed;
   } catch {
     return null;
   }
+}
+
+export function saveSessionToHistory(
+  result: AnalyzeResponse,
+  questionTopic: string,
+): void {
+  const config = loadSimulationConfig();
+  const record: SessionRecord = {
+    id: new Date().toISOString(),
+    questionTopic,
+    date: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+    result,
+    categoryLabel: config.categoryLabel,
+    questions: config.questions,
+  };
+
+  const existing = loadSessionHistory();
+  const updated = [record, ...existing].slice(0, 50);
+  localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(updated));
+  selectSession(record);
+}
+
+export function loadSessionHistory(): SessionRecord[] {
+  const raw = localStorage.getItem(STORAGE_KEYS.history);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as SessionRecord[];
+  } catch {
+    return [];
+  }
+}
+
+export function selectSession(record: SessionRecord): void {
+  localStorage.setItem(STORAGE_KEYS.selectedSessionId, record.id);
+  saveAnalysisResult(record.result);
+}
+
+export function loadSelectedSession(sessionId?: string | null): SessionRecord | null {
+  const history = loadSessionHistory();
+  const selectedId =
+    sessionId?.trim() || localStorage.getItem(STORAGE_KEYS.selectedSessionId);
+  if (selectedId) {
+    const selected = history.find((session) => session.id === selectedId);
+    if (selected) {
+      return selected;
+    }
+  }
+  return history[0] ?? null;
 }
 
 export async function analyzeRecording(
@@ -195,4 +431,15 @@ export function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function emotionBorderColor(emotion: string): string {
+  const e = emotion.toLowerCase();
+  if (e === "happy" || e === "neutral" || e === "surprise" || e === "surprised") {
+    return "#3a8377";
+  }
+  if (e === "sad" || e === "angry" || e === "fear" || e === "fearful" || e === "disgust") {
+    return "#c75240";
+  }
+  return "#c9a227";
 }

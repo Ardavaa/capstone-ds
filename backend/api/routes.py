@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,14 +11,26 @@ from anyio import to_thread
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from core.config import EMOTION_DELIVERY_BLEND_WEIGHT
+import time
+
+log = logging.getLogger(__name__)
+
+from api.upload_validation import validate_frame_upload, validate_media_upload
+from core.config import EMOTION_DELIVERY_BLEND_WEIGHT, EMOTION_MODEL_ID, SBERT_MODEL_ID, WHISPER_MODEL_ID
 from ml_pipeline.audio.analysis import DeliveryAnalysisResult, analyze_delivery
-from ml_pipeline.audio.emotion import EmotionAnalysisResult, analyze_voice_emotion, blend_delivery_score
-from ml_pipeline.audio.extraction import extract_audio_to_wav
+from ml_pipeline.audio.emotion import EmotionAnalysisResult, analyze_voice_emotion, blend_delivery_score, get_emotion_pipeline
+from ml_pipeline.audio.extraction import AudioExtractionError, AudioExtractionTimeoutError, extract_audio_to_wav
 from ml_pipeline.fusion.scorer import FusionResult, run_fusion
-from ml_pipeline.text.scoring import content_score
-from ml_pipeline.text.transcription import transcribe_audio
-from ml_pipeline.video.emotion import VideoEmotionResult, analyze_video_emotion
+from ml_pipeline.text.scoring import content_score, get_sbert_model
+from ml_pipeline.text.transcription import get_transcription_pipeline, transcribe_audio
+from ml_pipeline.video.emotion import (
+    FrameDetectionResult,
+    VideoEmotionResult,
+    analyze_video_emotion,
+    detect_frame_emotion,
+    get_emotion_model,
+    get_face_detector,
+)
 
 router = APIRouter()
 
@@ -45,6 +58,23 @@ class VideoEmotionMetrics(BaseModel):
     frames_sampled: int = Field(ge=0)
 
 
+class BoundingBox(BaseModel):
+    """Relative face bounding box (0–1 coordinates)."""
+
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class FrameDetectionResponse(BaseModel):
+    """Live camera frame emotion detection response."""
+
+    emotion: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    bbox: BoundingBox | None = None
+
+
 class DeliveryMetrics(BaseModel):
     """Delivery metrics exposed in the analysis API response.
 
@@ -55,6 +85,7 @@ class DeliveryMetrics(BaseModel):
         avg_pause_sec: Average pause between speech segments.
         longest_silence_sec: Longest detected silence gap.
         duration_sec: Total audio duration in seconds.
+        filler_words_found: Matched filler phrases from transcript.
     """
 
     wpm: float
@@ -63,6 +94,7 @@ class DeliveryMetrics(BaseModel):
     avg_pause_sec: float
     longest_silence_sec: float
     duration_sec: float
+    filler_words_found: list[str] = Field(default_factory=list)
 
 
 class AnalyzeResponse(BaseModel):
@@ -106,6 +138,64 @@ class _ProcessResult:
     fusion: FusionResult
 
 
+@router.post("/api/detect-frame", response_model=FrameDetectionResponse)
+async def detect_frame(file: UploadFile = File(...)) -> FrameDetectionResponse:
+    """Detect facial emotion and bounding box on a single camera frame.
+
+    Args:
+        file: JPEG or PNG image bytes from the browser canvas.
+
+    Returns:
+        Emotion label, confidence, and optional relative bounding box.
+    """
+
+    log.debug("detect-frame request received  content_type=%s", file.content_type)
+
+    try:
+        contents = await file.read()
+    except OSError as exc:
+        log.error("detect-frame: failed to read upload — %s", exc)
+        raise HTTPException(status_code=400, detail="Unable to read frame.") from exc
+
+    try:
+        validate_frame_upload(file.content_type, contents)
+    except ValueError as exc:
+        log.warning("detect-frame: validation failed — %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    result: FrameDetectionResult = await to_thread.run_sync(
+        detect_frame_emotion,
+        contents,
+    )
+
+    log.debug(
+        "detect-frame: emotion=%s  confidence=%.3f  has_bbox=%s",
+        result.emotion,
+        result.confidence,
+        result.bbox_x is not None,
+    )
+
+    bbox = None
+    if (
+        result.bbox_x is not None
+        and result.bbox_y is not None
+        and result.bbox_w is not None
+        and result.bbox_h is not None
+    ):
+        bbox = BoundingBox(
+            x=result.bbox_x,
+            y=result.bbox_y,
+            w=result.bbox_w,
+            h=result.bbox_h,
+        )
+
+    return FrameDetectionResponse(
+        emotion=result.emotion,
+        confidence=result.confidence,
+        bbox=bbox,
+    )
+
+
 @router.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_interview(
     file: UploadFile = File(...),
@@ -114,7 +204,7 @@ async def analyze_interview(
     """Analyze uploaded interview media end-to-end.
 
     Pipeline: ffmpeg extraction → Whisper transcription → delivery + voice emotion →
-    S-BERT content score → video facial emotion (YOLOv8-cls + MediaPipe) →
+    S-BERT content score → video facial emotion (YOLOv8-cls + OpenCV) →
     weighted fusion.
 
     Args:
@@ -128,24 +218,39 @@ async def analyze_interview(
         HTTPException: On empty uploads or processing failures.
     """
 
-    suffix = Path(file.filename or "").suffix.lower()
+    log.info(
+        "analyze: upload received  filename=%r  content_type=%s  topic=%r",
+        file.filename,
+        file.content_type,
+        question_topic[:60] if question_topic else "",
+    )
 
     try:
         contents = await file.read()
     except OSError as exc:
+        log.error("analyze: failed to read upload — %s", exc)
         raise HTTPException(
             status_code=400,
             detail="Unable to read the uploaded file.",
         ) from exc
 
-    file_size_bytes = len(contents)
-    if file_size_bytes == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    try:
+        upload = validate_media_upload(file.filename, file.content_type, contents)
+    except ValueError as exc:
+        log.warning("analyze: validation failed — %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    log.info(
+        "analyze: validation passed  size_bytes=%d  suffix=%s",
+        upload.size_bytes,
+        upload.suffix,
+    )
+
+    t_start = time.monotonic()
     try:
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            upload_path = temp_path / f"interview-upload{suffix or '.media'}"
+            upload_path = temp_path / f"interview-upload{upload.suffix}"
             audio_path = temp_path / "interview-audio.wav"
             upload_path.write_bytes(contents)
 
@@ -155,13 +260,31 @@ async def analyze_interview(
                 audio_path,
                 question_topic,
             )
+    except AudioExtractionTimeoutError as exc:
+        log.error("analyze: audio extraction timed out — %s", exc)
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except AudioExtractionError as exc:
+        log.error("analyze: audio extraction error — %s", exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        log.error("analyze: pipeline runtime error — %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Analysis pipeline failed.") from exc
 
+    elapsed_s = time.monotonic() - t_start
     delivery = result.delivery
     emotion = result.emotion
     video_emotion = result.video_emotion
     fusion = result.fusion
+
+    log.info(
+        "analyze: pipeline complete  elapsed=%.1fs  final_score=%d  "
+        "content=%d  delivery=%d  non_verbal=%d",
+        elapsed_s,
+        fusion.final_score,
+        fusion.content_score,
+        fusion.delivery_score,
+        fusion.non_verbal_score,
+    )
 
     return AnalyzeResponse(
         final_score=fusion.final_score,
@@ -176,6 +299,7 @@ async def analyze_interview(
             avg_pause_sec=delivery.avg_pause_sec,
             longest_silence_sec=delivery.longest_silence_sec,
             duration_sec=delivery.duration_sec,
+            filler_words_found=delivery.filler_words_found,
         ),
         emotion_metrics=EmotionMetrics(
             dominant_emotion=emotion.dominant_emotion,
@@ -196,7 +320,7 @@ async def analyze_interview(
         ),
         feedback=fusion.feedback,
         file_name=file.filename or "uploaded-media",
-        file_size_bytes=file_size_bytes,
+        file_size_bytes=upload.size_bytes,
     )
 
 
@@ -220,10 +344,14 @@ def _process_interview(
     transcription = transcribe_audio(extracted)
     delivery = analyze_delivery(transcription, extracted)
     emotion = analyze_voice_emotion(extracted)
-    blended_delivery = blend_delivery_score(
-        delivery.delivery_score,
-        emotion.emotion_score,
-        EMOTION_DELIVERY_BLEND_WEIGHT,
+    blended_delivery = (
+        blend_delivery_score(
+            delivery.delivery_score,
+            emotion.emotion_score,
+            EMOTION_DELIVERY_BLEND_WEIGHT,
+        )
+        if emotion.chunks_analyzed > 0
+        else delivery.delivery_score
     )
     content = content_score(transcription, question_topic)
     video_emotion = analyze_video_emotion(upload_path)
@@ -244,3 +372,92 @@ def _process_interview(
         video_emotion=video_emotion,
         fusion=fusion,
     )
+
+
+# ─── Preflight model-load checks ────────────────────────────────────────────
+
+
+class PreflightResult(BaseModel):
+    """Result of a single model preflight check."""
+
+    key: str
+    label: str
+    model_id: str
+    status: str  # "ok" | "error"
+    elapsed_ms: int
+    message: str = ""
+
+
+def _run_preflight(key: str, label: str, model_id: str, loader: object) -> PreflightResult:
+    """Load one model and return timing + status.
+
+    Logs a structured INFO line on success and an ERROR line (with traceback)
+    on failure so the root cause is always visible in the server console.
+    """
+    log.info("preflight: [%s] starting  model_id=%r", key, model_id)
+    t0 = time.monotonic()
+    try:
+        loader()  # type: ignore[call-arg]
+        elapsed = int((time.monotonic() - t0) * 1000)
+        log.info("preflight: [%s] ✓ loaded in %d ms", key, elapsed)
+        return PreflightResult(key=key, label=label, model_id=model_id, status="ok", elapsed_ms=elapsed)
+    except Exception as exc:
+        elapsed = int((time.monotonic() - t0) * 1000)
+        log.error(
+            "preflight: [%s] ✗ FAILED after %d ms — %s: %s",
+            key,
+            elapsed,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return PreflightResult(
+            key=key,
+            label=label,
+            model_id=model_id,
+            status="error",
+            elapsed_ms=elapsed,
+            message=f"{type(exc).__name__}: {exc}",
+        )
+
+
+_PREFLIGHT_MODELS = [
+    ("whisper",   "Whisper ASR",        WHISPER_MODEL_ID,  get_transcription_pipeline),
+    ("wav2vec2",  "Wav2Vec2 Voice SER", EMOTION_MODEL_ID,  get_emotion_pipeline),
+    ("sbert",     "S-BERT Content",     SBERT_MODEL_ID,    get_sbert_model),
+    ("yolo",      "YOLOv8 Facial",      "best.pt",         get_emotion_model),
+    ("mediapipe", "Face Detector",      "yolov8n-face.pt", get_face_detector),
+]
+
+
+@router.get("/api/preflight/{model_key}", response_model=PreflightResult)
+async def preflight_check(model_key: str) -> PreflightResult:
+    """Load a single model and return its status.
+
+    Called sequentially by the frontend checklist UI before recording starts.
+
+    Args:
+        model_key: One of ``whisper``, ``wav2vec2``, ``sbert``, ``yolo``,
+            ``mediapipe``.
+
+    Returns:
+        :class:`PreflightResult` with status and load time.
+
+    Raises:
+        HTTPException: 404 if ``model_key`` is unknown.
+    """
+    log.info("preflight: request received  model_key=%r", model_key)
+    entry = next((m for m in _PREFLIGHT_MODELS if m[0] == model_key), None)
+    if entry is None:
+        log.warning("preflight: unknown model_key=%r", model_key)
+        raise HTTPException(status_code=404, detail=f"Unknown model key: {model_key}")
+
+    key, label, model_id, loader = entry
+    result = await to_thread.run_sync(lambda: _run_preflight(key, label, model_id, loader))
+    log.info(
+        "preflight: response sent  key=%s  status=%s  elapsed_ms=%d",
+        result.key,
+        result.status,
+        result.elapsed_ms,
+    )
+    return result

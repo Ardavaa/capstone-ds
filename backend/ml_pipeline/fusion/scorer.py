@@ -37,6 +37,8 @@ def fuse(
     content_score: int,
     delivery_score: int,
     non_verbal_score: int,
+    *,
+    include_non_verbal: bool = True,
 ) -> int:
     """Compute weighted final score (40% content, 30% delivery, 30% non-verbal).
 
@@ -44,10 +46,20 @@ def fuse(
         content_score: Text/content score 0–100.
         delivery_score: Audio delivery score 0–100.
         non_verbal_score: Non-verbal score 0–100.
+        include_non_verbal: Whether the non-verbal score came from analyzed
+            video frames and should contribute to the final score.
 
     Returns:
         Rounded final score clamped to ``[0, 100]``.
     """
+
+    if not include_non_verbal:
+        available_weight = WEIGHT_CONTENT + WEIGHT_DELIVERY
+        raw = (
+            WEIGHT_CONTENT * content_score
+            + WEIGHT_DELIVERY * delivery_score
+        ) / available_weight
+        return int(max(0, min(100, round(raw))))
 
     raw = (
         WEIGHT_CONTENT * content_score
@@ -194,7 +206,13 @@ def run_fusion(
         if blended_delivery_score is not None
         else delivery.delivery_score
     )
-    final = fuse(content_score, delivery_score, non_verbal_score)
+    include_non_verbal = video_emotion is None or video_emotion.frames_analyzed > 0
+    final = fuse(
+        content_score,
+        delivery_score,
+        non_verbal_score,
+        include_non_verbal=include_non_verbal,
+    )
     feedback = build_feedback(
         content_score,
         delivery,

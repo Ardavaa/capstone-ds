@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import AppIcon from "../components/AppIcon";
 import AuthVisualPanel from "../components/AuthVisualPanel";
-
-const ARROW_RIGHT = "https://www.figma.com/api/mcp/asset/c833f9f6-5d75-4335-a116-2d04c3239539";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,7 +42,9 @@ export default function RegisterPage() {
         </h1>
 
         {/* Subtitle */}
-        <p className="mb-12 text-[13px] text-[#bfbfbf]">Free for students. No credit card.</p>
+        <p className="mb-12 text-[13px] text-[#bfbfbf]">
+          Local demo mode only. Account creation is not persisted yet.
+        </p>
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-5">
           {/* Full name */}
@@ -55,7 +56,7 @@ export default function RegisterPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Muhammad Rafif"
+              placeholder="Your name"
               className="w-full border border-[#0a0a0a] bg-[#faf7f2] px-[15px] py-[13px] text-[13px] text-[#0a0a0a] placeholder:text-[#757575] focus:outline-none"
             />
           </div>
@@ -98,10 +99,7 @@ export default function RegisterPage() {
                 className="size-3.5 appearance-none border border-[#0a0a0a] bg-[#faf7f2] checked:bg-[#0a0a0a]"
               />
               <span className="text-[11px] uppercase tracking-[0.55px] text-[#0a0a0a]">
-                I agree to the{" "}
-                <a href="#" className="underline">
-                  terms
-                </a>
+                I understand this is local demo mode
               </span>
             </label>
           </div>
@@ -113,7 +111,7 @@ export default function RegisterPage() {
             className="flex w-full items-center justify-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:border-[#bfbfbf] disabled:bg-[#bfbfbf]"
           >
             Create account
-            <img src={ARROW_RIGHT} alt="" className="size-4" />
+            <AppIcon name="arrow-right" className="size-4" />
           </button>
 
           {/* Divider */}
@@ -126,9 +124,10 @@ export default function RegisterPage() {
           {/* Google */}
           <button
             type="button"
-            className="w-full border border-[#0a0a0a] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#0a0a0a] hover:bg-black/5"
+            disabled
+            className="w-full cursor-not-allowed border border-[#bfbfbf] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#bfbfbf]"
           >
-            Continue with Google
+            Google unavailable
           </button>
         </form>
 

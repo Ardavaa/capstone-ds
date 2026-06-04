@@ -26,6 +26,12 @@ Install the locked dependencies:
 uv sync
 ```
 
+Optionally copy the environment sample before local runs:
+
+```bash
+cp .env.example .env
+```
+
 ## Export `requirements.txt`
 
 When dependencies change through `uv add`, regenerate `requirements.txt` with:
@@ -60,3 +66,14 @@ Example response fields: `final_score`, `content_score`, `delivery_score`, `non_
 `emotion_metrics` includes `dominant_emotion`, `emotion_distribution`, `stability_score`, `nervous_rate`, `emotion_score`, and `chunks_analyzed`. Delivery score blends fluency (75%) with voice emotion (25%).
 
 `video_emotion_metrics` includes `dominant_emotion`, `emotion_distribution`, `stability_score`, `nervous_rate`, `non_verbal_score`, `frames_analyzed`, and `frames_sampled`. The YOLOv8-cls weights live at `backend/ml_pipeline/video/models/best.pt`.
+
+## Local Cache and Tooling
+
+Downloaded Hugging Face models are cached under `backend/.hf_cache/`. That directory is generated at runtime and ignored by Git; the first model load restores it automatically.
+
+Run lightweight backend checks from this directory with:
+
+```bash
+uvx ruff check .
+uvx pytest
+```
