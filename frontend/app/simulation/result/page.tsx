@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import {
   type AnalyzeResponse,
+  DEFAULT_SIMULATION_CONFIG,
   formatDuration,
   loadAnalysisResult,
+  loadSimulationConfig,
   performanceLabel,
+  STORAGE_KEYS,
 } from "@/app/lib/analysis";
 
 type ScoreCategory = {
@@ -113,10 +116,34 @@ function summaryHeadline(score: number): { line1: string; highlight: string; lin
   return { line1: "You have a", highlight: "solid base", line2: "to build on." };
 }
 
+function subscribeToStorage(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
+function getResultSnapshot(): string {
+  return [
+    sessionStorage.getItem(STORAGE_KEYS.analysisResult) ?? "",
+    sessionStorage.getItem(STORAGE_KEYS.simulationConfig) ?? "",
+    sessionStorage.getItem(STORAGE_KEYS.questionTopic) ?? "",
+  ].join("\n");
+}
+
 export default function ResultPage() {
-  const [result] = useState<AnalyzeResponse | null>(() =>
-    typeof window !== "undefined" ? loadAnalysisResult() : null,
+  const resultSnapshot = useSyncExternalStore(
+    subscribeToStorage,
+    getResultSnapshot,
+    () => "",
   );
+  const result = useMemo(
+    () => (resultSnapshot ? loadAnalysisResult() : null),
+    [resultSnapshot],
+  );
+  const simulationConfig = useMemo(
+    () => (resultSnapshot ? loadSimulationConfig() : DEFAULT_SIMULATION_CONFIG),
+    [resultSnapshot],
+  );
+
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
 
   if (!result) {
@@ -191,7 +218,7 @@ export default function ResultPage() {
         <div className="flex items-start gap-10">
           <div className="flex flex-1 flex-col">
             <p className="mb-4 text-[11px] uppercase tracking-[1.5px] text-[#bfbfbf]">
-              [ SW Engineer · 3 Q · {durationLabel} ]
+              [ {simulationConfig.categoryLabel} · {simulationConfig.questions.length} Q · {durationLabel} ]
             </p>
 
             <h1 className="mb-4 text-[42px] font-bold leading-[1.1] tracking-[-1.2px] text-[#0a0a0a]">

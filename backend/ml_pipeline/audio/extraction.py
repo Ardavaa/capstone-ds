@@ -3,6 +3,16 @@
 import subprocess
 from pathlib import Path
 
+from core.config import FFMPEG_TIMEOUT_SEC
+
+
+class AudioExtractionError(RuntimeError):
+    """Raised when uploaded media cannot be converted to analysis audio."""
+
+
+class AudioExtractionTimeoutError(AudioExtractionError):
+    """Raised when ffmpeg does not finish within the configured timeout."""
+
 
 def extract_audio_to_wav(input_path: Path, output_path: Path) -> Path:
     """Extract or normalize uploaded media audio into a 16 kHz mono WAV file.
@@ -20,6 +30,9 @@ def extract_audio_to_wav(input_path: Path, output_path: Path) -> Path:
 
     command = [
         "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
         "-y",
         "-i",
         str(input_path),
@@ -39,17 +52,22 @@ def extract_audio_to_wav(input_path: Path, output_path: Path) -> Path:
             check=True,
             capture_output=True,
             text=True,
+            timeout=FFMPEG_TIMEOUT_SEC,
         )
     except FileNotFoundError as exc:
-        raise RuntimeError(
+        raise AudioExtractionError(
             "ffmpeg is not installed or is not available on PATH.",
         ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise AudioExtractionTimeoutError(
+            "Media audio extraction timed out.",
+        ) from exc
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"ffmpeg failed to extract audio: {exc.stderr.strip()}",
+        raise AudioExtractionError(
+            "Uploaded media could not be decoded or does not contain a readable audio track.",
         ) from exc
 
     if not output_path.exists():
-        raise RuntimeError(f"ffmpeg did not create an audio file: {result.stderr}")
+        raise AudioExtractionError("ffmpeg did not create an audio file.")
 
     return output_path

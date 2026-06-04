@@ -9,6 +9,7 @@ import {
   getQuestionTopic,
   loadRecordingFromSession,
   saveAnalysisResult,
+  saveSessionToHistory,
 } from "@/app/lib/analysis";
 
 type StepState = "pending" | "active" | "done";
@@ -22,7 +23,7 @@ type Step = {
 const STEPS: Step[] = [
   { id: 1, label: "Audio Transcription", tech: "Whisper" },
   { id: 2, label: "Speech Pattern Analysis", tech: "Wav2Vec2 · Silero VAD" },
-  { id: 3, label: "Facial Expression & Gesture Detection", tech: "YOLO5Face · MediaPipe" },
+  { id: 3, label: "Facial Expression Detection", tech: "YOLOv8 · face detector" },
   { id: 4, label: "Semantic Content Evaluation", tech: "IndoBERT · S-BERT" },
   { id: 5, label: "Generating Feedback", tech: "Weighted Fusion" },
 ];
@@ -59,12 +60,6 @@ export default function AnalyzingPage() {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    const recording = loadRecordingFromSession();
-    if (!recording) {
-      setError("No recording found. Please record your interview again.");
-      return;
-    }
-
     let step = 1;
     const stepTimer = setInterval(() => {
       step += 1;
@@ -74,12 +69,20 @@ export default function AnalyzingPage() {
     }, 3500);
 
     async function runAnalysis() {
+      const recording = await loadRecordingFromSession();
+      if (!recording) {
+        clearInterval(stepTimer);
+        setError("No recording found. Please record your interview again.");
+        return;
+      }
+
       try {
         const result = await analyzeRecording(
           recording.blob,
           getQuestionTopic(),
         );
         saveAnalysisResult(result);
+        saveSessionToHistory(result, getQuestionTopic());
         clearInterval(stepTimer);
         setActiveStep(STEPS.length);
         setFinished(true);

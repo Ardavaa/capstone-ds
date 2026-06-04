@@ -29,6 +29,7 @@ class DeliveryAnalysisResult:
         longest_silence_sec: Longest silence gap between speech segments.
         duration_sec: Total audio duration in seconds.
         delivery_score: Rule-based delivery score from 0 to 100.
+        filler_words_found: Filler phrases detected in the transcript.
     """
 
     wpm: float
@@ -38,6 +39,7 @@ class DeliveryAnalysisResult:
     longest_silence_sec: float
     duration_sec: float
     delivery_score: int
+    filler_words_found: list[str]
 
 
 def get_audio_duration_sec(audio_path: Path, sample_rate: int = 16000) -> float:
@@ -78,34 +80,40 @@ def compute_wpm(text: str, duration_sec: float) -> float:
     return round(len(words) / minutes, 1)
 
 
-def detect_filler_words(text: str, filler_list: tuple[str, ...] = FILLER_WORDS) -> tuple[int, float]:
-    """Count filler tokens and compute filler rate as a percentage of words.
+def detect_filler_words(
+    text: str,
+    filler_list: tuple[str, ...] = FILLER_WORDS,
+) -> tuple[int, float, list[str]]:
+    """Count filler tokens, rate, and list matched phrases.
 
     Args:
         text: Transcribed speech text.
         filler_list: Filler phrases to detect (longest match first).
 
     Returns:
-        A tuple of ``(filler_count, filler_rate_percent)``.
+        ``(filler_count, filler_rate_percent, filler_words_found)``.
     """
 
     words = _tokenize_words(text)
     total_words = len(words)
     if total_words == 0:
-        return 0, 0.0
+        return 0, 0.0, []
 
     lowered = text.lower()
     count = 0
+    found: list[str] = []
     sorted_fillers = sorted(filler_list, key=len, reverse=True)
 
     for filler in sorted_fillers:
         pattern = re.compile(rf"\b{re.escape(filler)}\b", re.IGNORECASE)
         matches = pattern.findall(lowered)
-        count += len(matches)
-        lowered = pattern.sub(" ", lowered)
+        if matches:
+            count += len(matches)
+            found.extend([filler] * len(matches))
+            lowered = pattern.sub(" ", lowered)
 
     rate = round((count / total_words) * 100.0, 2)
-    return count, rate
+    return count, rate, found
 
 
 def compute_pauses(audio_path: Path, sample_rate: int = 16000) -> tuple[float, float]:
@@ -185,7 +193,7 @@ def analyze_delivery(
 
     duration_sec = get_audio_duration_sec(audio_path)
     wpm = compute_wpm(transcription, duration_sec)
-    filler_count, filler_rate = detect_filler_words(transcription)
+    filler_count, filler_rate, filler_found = detect_filler_words(transcription)
     avg_pause, longest_silence = compute_pauses(audio_path)
     score = delivery_score(wpm, filler_rate, avg_pause)
 
@@ -197,6 +205,7 @@ def analyze_delivery(
         longest_silence_sec=longest_silence,
         duration_sec=round(duration_sec, 2),
         delivery_score=score,
+        filler_words_found=filler_found,
     )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -13,7 +14,7 @@ import torch
 from transformers import pipeline
 from transformers.pipelines import Pipeline
 
-from core.config import (
+from core.config import (  # noqa: E402 – config sets HF_HOME as side-effect
     EMOTION_CHUNK_SEC,
     EMOTION_DELIVERY_BLEND_WEIGHT,
     EMOTION_MIN_CHUNK_SEC,
@@ -21,6 +22,8 @@ from core.config import (
     EMOTION_SAMPLE_RATE,
     PAUSE_TOP_DB,
 )
+
+log = logging.getLogger(__name__)
 
 # Interview-friendly valence per normalized emotion label (0–1).
 _EMOTION_VALENCE: dict[str, float] = {
@@ -72,12 +75,15 @@ class EmotionAnalysisResult:
 def get_emotion_pipeline() -> Pipeline:
     """Create and cache the Hugging Face audio emotion classification pipeline."""
 
+    log.info("SER: loading pipeline  model_id=%r", EMOTION_MODEL_ID)
     device = 0 if torch.cuda.is_available() else -1
-    return pipeline(
+    pipe = pipeline(
         task="audio-classification",
         model=EMOTION_MODEL_ID,
         device=device,
     )
+    log.info("SER: pipeline ready  device=%s", "cuda" if device == 0 else "cpu")
+    return pipe
 
 
 def analyze_voice_emotion(audio_path: Path) -> EmotionAnalysisResult:
@@ -92,12 +98,15 @@ def analyze_voice_emotion(audio_path: Path) -> EmotionAnalysisResult:
 
     chunks = _extract_speech_chunks(audio_path)
     if not chunks:
+        log.warning("SER: no speech chunks found  path=%s", audio_path.name)
         return _default_result()
 
     try:
         classifier = get_emotion_pipeline()
         labels = [_classify_chunk(classifier, chunk) for chunk in chunks]
-    except Exception:
+        log.info("SER: classified %d chunks  dominant=%s", len(labels), max(set(labels), key=labels.count))
+    except Exception as exc:
+        log.warning("SER: classifier failed, using prosody fallback — %s: %s", type(exc).__name__, exc)
         labels = [_prosody_fallback_label(chunk) for chunk in chunks]
 
     return _aggregate_labels(labels)
@@ -246,13 +255,13 @@ def _normalize_label(label: str) -> str:
 
 
 def _default_result() -> EmotionAnalysisResult:
-    """Return neutral metrics when no speech is detected."""
+    """Return unavailable metrics when no speech is detected."""
 
     return EmotionAnalysisResult(
         dominant_emotion=_DEFAULT_EMOTION,
         emotion_distribution={_DEFAULT_EMOTION: 1.0},
         stability_score=1.0,
         nervous_rate=0.0,
-        emotion_score=70,
+        emotion_score=0,
         chunks_analyzed=0,
     )
