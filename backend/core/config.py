@@ -30,7 +30,7 @@ ALLOWED_FRAME_MIME_TYPES: Final[frozenset[str]] = frozenset({"image/jpeg", "imag
 
 # ─── Model IDs ───────────────────────────────────────────────────────────────
 
-WHISPER_MODEL_ID: Final[str] = "openai/whisper-tiny"
+WHISPER_MODEL_ID: Final[str] = "Systran/faster-whisper-base"
 SBERT_MODEL_ID: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
 EMOTION_MODEL_ID: Final[str] = "superb/wav2vec2-base-superb-er"
 
