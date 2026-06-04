@@ -5,9 +5,17 @@ from typing import Final
 
 # ─── Model IDs ───────────────────────────────────────────────────────────────
 
-WHISPER_MODEL_ID: Final[str] = "cobrayyxx/whisper-small-indo-eng"
+WHISPER_MODEL_ID: Final[str] = "openai/whisper-medium"
 SBERT_MODEL_ID: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
 EMOTION_MODEL_ID: Final[str] = "superb/wav2vec2-base-superb-er"
+
+# ─── Transcription (Whisper) ─────────────────────────────────────────────────
+
+# paksa transkripsi Bahasa Indonesia (bukan translate ke Inggris)
+WHISPER_LANGUAGE: Final[str] = "indonesian"
+WHISPER_TASK: Final[str] = "transcribe"
+# chunking untuk audio >30 detik (long-form)
+WHISPER_CHUNK_LENGTH_S: Final[int] = 30
 
 # ─── Voice emotion (SER) ─────────────────────────────────────────────────────
 

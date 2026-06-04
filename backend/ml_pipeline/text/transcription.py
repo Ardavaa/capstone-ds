@@ -8,7 +8,12 @@ import torch
 from transformers import pipeline
 from transformers.pipelines import Pipeline
 
-from core.config import WHISPER_MODEL_ID
+from core.config import (
+    WHISPER_CHUNK_LENGTH_S,
+    WHISPER_LANGUAGE,
+    WHISPER_MODEL_ID,
+    WHISPER_TASK,
+)
 
 
 @cache
@@ -43,7 +48,11 @@ def transcribe_audio(audio_path: Path) -> str:
     transcriber = get_transcription_pipeline()
     result = cast(
         dict[str, Any],
-        transcriber(str(audio_path), return_timestamps=True),
+        transcriber(
+            str(audio_path),
+            chunk_length_s=WHISPER_CHUNK_LENGTH_S,
+            generate_kwargs={"language": WHISPER_LANGUAGE, "task": WHISPER_TASK},
+        ),
     )
     text = result.get("text")
 
