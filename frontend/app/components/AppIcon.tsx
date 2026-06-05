@@ -26,16 +26,17 @@ type AppIconProps = {
   name: IconName;
   className?: string;
   title?: string;
+  strokeWidth?: number;
 };
 
-export default function AppIcon({ name, className = "size-4", title }: AppIconProps) {
+export default function AppIcon({ name, className = "size-4", title, strokeWidth = 2 }: AppIconProps) {
   const common = {
     className,
     fill: "none",
     stroke: "currentColor",
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    strokeWidth: 2,
+    strokeWidth,
     viewBox: "0 0 24 24",
     "aria-hidden": title ? undefined : true,
     role: title ? "img" : undefined,

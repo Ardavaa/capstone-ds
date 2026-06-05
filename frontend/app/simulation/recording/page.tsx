@@ -60,11 +60,11 @@ function SidebarNavItem({
       title={label}
       className={`flex size-12 cursor-pointer items-center justify-center rounded-2xl transition-all duration-200 ${
         active
-          ? "bg-emerald-50 text-emerald-600 shadow-sm"
+          ? "bg-slate-100 text-slate-900 font-bold border border-slate-200/50 shadow-xs"
           : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
       }`}
     >
-      <AppIcon name={icon} className="size-5" />
+      <AppIcon name={icon} className={`size-5 ${active ? "text-slate-900" : ""}`} strokeWidth={active ? 2.6 : 2} />
     </div>
   );
 
@@ -208,6 +208,7 @@ export default function RecordingPage() {
   const [selectedAudioId, setSelectedAudioId] = useState<string>("");
   const [selectedVideoId, setSelectedVideoId] = useState<string>("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(true);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   // ── Simulation config ──────────────────────────────────────────────────────
@@ -641,7 +642,7 @@ export default function RecordingPage() {
       <aside className="flex w-[80px] shrink-0 flex-col items-center justify-between border-r border-slate-200 bg-white py-6">
         <div className="flex flex-col items-center gap-8">
           {/* Lumen Brand Logo */}
-          <div className="text-indigo-600">
+          <div className="text-[#1C1C1E]">
             <IconLogo size={32} />
           </div>
 
@@ -832,22 +833,16 @@ export default function RecordingPage() {
               )}
             </div>
 
-            {/* Mic volume sound levels (Vertical slider visual overlay) */}
-            {phase === "answering" && micOn && (
-              <div className="absolute bottom-4 left-4 z-20 flex h-32 w-10 flex-col items-center justify-between rounded-2xl bg-black/40 p-2 text-white backdrop-blur-md">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
-                </svg>
-                <div className="w-1 flex-1 mx-2 my-2 rounded-full bg-white/20 overflow-hidden flex flex-col justify-end">
-                  <div className="w-full bg-emerald-500 transition-all duration-75" style={{ height: `${avgLevel}%` }}></div>
-                </div>
-                <span className="text-[8px] font-bold text-white/40">VOL</span>
-              </div>
-            )}
-
             {/* Bottom Controls Panel inside video frame overlay */}
             <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 p-2 backdrop-blur-md">
-              <button className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition-all hover:scale-105">
+              <button
+                type="button"
+                onClick={() => setShowChecklist((v) => !v)}
+                title={showChecklist ? "Hide checklist" : "Show checklist"}
+                className={`flex size-11 items-center justify-center rounded-full transition-all hover:scale-105 ${
+                  showChecklist ? "bg-white/20 text-white" : "bg-white/10 text-white/80 hover:bg-white/20"
+                }`}
+              >
                 <AppIcon name="dashboard" className="size-4" />
               </button>
 
@@ -996,48 +991,50 @@ export default function RecordingPage() {
           </div>
 
           {/* Checklist of Questions Sidebar Panel */}
-          <aside className="w-[180px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Checklist
-            </div>
+          {showChecklist && (
+            <aside className="w-[180px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Checklist
+              </div>
 
-            {questions.map((q, idx) => {
-              const isCurrent = idx + 1 === currentQ;
-              const isDone = idx + 1 < currentQ;
-              const isFuture = idx + 1 > currentQ;
-              return (
-                <div
-                  key={idx}
-                  className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 transition-all ${
-                    isCurrent
-                      ? "border-indigo-200 bg-indigo-50/50 shadow-sm"
-                      : isDone
-                      ? "border-slate-100 bg-slate-50 opacity-60"
-                      : "border-slate-100 bg-white"
-                  } ${isFuture ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
-                      Question {idx + 1}
-                    </span>
-                    {isDone && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                        <IconCheck />
+              {questions.map((q, idx) => {
+                const isCurrent = idx + 1 === currentQ;
+                const isDone = idx + 1 < currentQ;
+                const isFuture = idx + 1 > currentQ;
+                return (
+                  <div
+                    key={idx}
+                    className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 transition-all ${
+                      isCurrent
+                        ? "border-indigo-200 bg-indigo-50/50 shadow-sm"
+                        : isDone
+                        ? "border-slate-100 bg-slate-50 opacity-60"
+                        : "border-slate-100 bg-white"
+                    } ${isFuture ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-bold uppercase ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
+                        Question {idx + 1}
                       </span>
-                    )}
-                    {isFuture && (
-                      <span className="text-[9px] font-medium text-slate-400">
-                        Locked
-                      </span>
-                    )}
+                      {isDone && (
+                        <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                          <IconCheck />
+                        </span>
+                      )}
+                      {isFuture && (
+                        <span className="text-[9px] font-medium text-slate-400">
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                    <p className="line-clamp-2 text-[11px] text-slate-500 leading-normal">
+                      {isFuture ? "Question is locked" : q}
+                    </p>
                   </div>
-                  <p className="line-clamp-2 text-[11px] text-slate-500 leading-normal">
-                    {isFuture ? "Question is locked" : q}
-                  </p>
-                </div>
-              );
-            })}
-          </aside>
+                );
+              })}
+            </aside>
+          )}
         </div>
 
         {/* ── FOOTER: Waveform & Subtitle transcript area ── */}
