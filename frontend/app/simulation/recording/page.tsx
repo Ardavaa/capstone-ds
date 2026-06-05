@@ -58,7 +58,7 @@ function SidebarNavItem({
   const content = (
     <div
       title={label}
-      className={`flex size-12 cursor-pointer items-center justify-center rounded-2xl transition-all duration-200 ${
+      className={`flex size-12 cursor-pointer items-center justify-center rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 ${
         active
           ? "bg-slate-100 text-slate-900 font-bold border border-slate-200/50 shadow-xs"
           : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
@@ -768,7 +768,7 @@ export default function RecordingPage() {
 
               {/* Countdown loading view */}
               {phase === "countdown" && !mediaError && (
-                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm">
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[3px] text-white/40">
                     Q{currentQ} of {questions.length} · Starting in
                   </p>
@@ -787,13 +787,13 @@ export default function RecordingPage() {
 
               {/* Between questions saved view */}
               {phase === "between" && !mediaError && (
-                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-slate-950/95 backdrop-blur-md">
-                  <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-slate-950/95 backdrop-blur-md animate-fade-in">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 animate-scale-up">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <div className="text-center px-6">
+                  <div className="text-center px-6 animate-scale-up">
                     <p className="text-xs font-semibold uppercase tracking-[3px] text-emerald-500">Answer Saved</p>
                     <p className="mt-1 text-lg font-bold text-white">
                       Ready for Question {currentQ}?
@@ -805,7 +805,7 @@ export default function RecordingPage() {
                   <button
                     type="button"
                     onClick={() => { setPhase("countdown"); setCountdown(PRE_ROLL_SEC); }}
-                    className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+                    className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-600/20 cursor-pointer animate-scale-up"
                   >
                     Start Question {currentQ} <IconArrowRight />
                   </button>
@@ -889,110 +889,116 @@ export default function RecordingPage() {
               </button>
 
               <button
-                onClick={() => setShowSettings(true)}
-                className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition-all hover:scale-105"
+                onClick={() => setShowSettings((v) => !v)}
+                className={`flex size-11 items-center justify-center rounded-full text-white/80 transition-all hover:scale-105 active:scale-95 ${
+                  showSettings ? "bg-white/20 text-white" : "bg-white/10 hover:bg-white/20"
+                }`}
               >
                 <AppIcon name="settings" className="size-4" />
               </button>
             </div>
 
             {/* ── Google Meet Style Settings Popover ── */}
-            {showSettings && (
-              <div className="absolute bottom-20 left-1/2 z-30 w-[320px] -translate-x-1/2 rounded-2xl border border-white/5 bg-[#141414]/98 p-4 text-white shadow-2xl backdrop-blur-md">
-                <div className="mb-3 flex items-center justify-between border-b border-white/5 pb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Device Settings</span>
-                  <button
-                    onClick={() => setShowSettings(false)}
-                    className="rounded-full p-1 text-slate-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </div>
+            <div className={`absolute bottom-20 left-1/2 z-30 w-[320px] -translate-x-1/2 rounded-2xl border border-white/5 bg-[#141414]/98 p-4 text-white shadow-2xl backdrop-blur-md transition-all duration-300 ease-out origin-bottom ${
+              showSettings
+                ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                : "opacity-0 scale-95 translate-y-4 pointer-events-none"
+            }`}>
+              <div className="mb-3 flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Device Settings</span>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="rounded-full p-1 text-slate-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
 
-                <div className="flex flex-col gap-4">
-                  {/* Microphone Section */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Microphone</span>
-                    <div className="flex flex-col max-h-[110px] overflow-y-auto gap-0.5 device-scroll">
-                      {audioDevices.map((d) => {
-                        const isSelected = d.deviceId === selectedAudioId;
-                        return (
-                          <button
-                            key={d.deviceId}
-                            type="button"
-                            onClick={() => void changeDevices(d.deviceId, selectedVideoId)}
-                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer ${
-                              isSelected
-                                ? "bg-white/10 text-white font-medium shadow-sm"
-                                : "text-slate-300 hover:bg-white/5"
-                            }`}
-                          >
-                            <span className="flex size-3.5 shrink-0 items-center justify-center">
-                              {isSelected && (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </span>
-                            <span className="truncate">{d.label || `Microphone ${d.deviceId.slice(0, 5)}`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Mic volume progress bar */}
-                    <div className="mt-1.5 flex items-center gap-2 px-1 py-1 border-t border-white/5">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400">
-                        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      </svg>
-                      <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full bg-emerald-500 transition-all duration-75" style={{ width: `${avgLevel}%` }} />
-                      </div>
-                    </div>
+              <div className="flex flex-col gap-4">
+                {/* Microphone Section */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Microphone</span>
+                  <div className="flex flex-col max-h-[110px] overflow-y-auto overflow-x-hidden gap-0.5 device-scroll">
+                    {audioDevices.map((d) => {
+                      const isSelected = d.deviceId === selectedAudioId;
+                      return (
+                        <button
+                          key={d.deviceId}
+                          type="button"
+                          onClick={() => void changeDevices(d.deviceId, selectedVideoId)}
+                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer hover:translate-x-0.5 ${
+                            isSelected
+                              ? "bg-white/10 text-white font-medium shadow-sm"
+                              : "text-slate-300 hover:bg-white/5"
+                          }`}
+                        >
+                          <span className="flex size-3.5 shrink-0 items-center justify-center">
+                            {isSelected && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white animate-scale-up">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </span>
+                          <span className="truncate">{d.label || `Microphone ${d.deviceId.slice(0, 5)}`}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {/* Camera Section */}
-                  <div className="flex flex-col gap-1.5 border-t border-white/5 pt-3">
-                    <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Camera</span>
-                    <div className="flex flex-col max-h-[110px] overflow-y-auto gap-0.5 device-scroll">
-                      {videoDevices.map((d) => {
-                        const isSelected = d.deviceId === selectedVideoId;
-                        return (
-                          <button
-                            key={d.deviceId}
-                            type="button"
-                            onClick={() => void changeDevices(selectedAudioId, d.deviceId)}
-                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer ${
-                              isSelected
-                                ? "bg-white/10 text-white font-medium shadow-sm"
-                                : "text-slate-300 hover:bg-white/5"
-                            }`}
-                          >
-                            <span className="flex size-3.5 shrink-0 items-center justify-center">
-                              {isSelected && (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              )}
-                            </span>
-                            <span className="truncate">{d.label || `Camera ${d.deviceId.slice(0, 5)}`}</span>
-                          </button>
-                        );
-                      })}
+                  {/* Mic volume progress bar */}
+                  <div className="mt-1.5 flex items-center gap-2 px-1 py-1 border-t border-white/5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400">
+                      <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    </svg>
+                    <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-75" style={{ width: `${avgLevel}%` }} />
                     </div>
+                  </div>
+                </div>
+
+                {/* Camera Section */}
+                <div className="flex flex-col gap-1.5 border-t border-white/5 pt-3">
+                  <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Camera</span>
+                  <div className="flex flex-col max-h-[110px] overflow-y-auto overflow-x-hidden gap-0.5 device-scroll">
+                    {videoDevices.map((d) => {
+                      const isSelected = d.deviceId === selectedVideoId;
+                      return (
+                        <button
+                          key={d.deviceId}
+                          type="button"
+                          onClick={() => void changeDevices(selectedAudioId, d.deviceId)}
+                          className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer hover:translate-x-0.5 ${
+                            isSelected
+                              ? "bg-white/10 text-white font-medium shadow-sm"
+                              : "text-slate-300 hover:bg-white/5"
+                          }`}
+                        >
+                          <span className="flex size-3.5 shrink-0 items-center justify-center">
+                            {isSelected && (
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white animate-scale-up">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </span>
+                          <span className="truncate">{d.label || `Camera ${d.deviceId.slice(0, 5)}`}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Checklist of Questions Sidebar Panel */}
-          {showChecklist && (
-            <aside className="w-[180px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
+          {/* Checklist of Questions Sidebar Panel (Animated Drawer) */}
+          <aside className={`shrink-0 flex flex-col gap-3 overflow-y-auto no-scrollbar pr-1 transition-all duration-300 ease-in-out ${
+            showChecklist ? "w-[180px] opacity-100 translate-x-0" : "w-0 opacity-0 translate-x-4 pointer-events-none"
+          }`}>
+            <div className="w-[180px] flex flex-col gap-3">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Checklist
               </div>
@@ -1004,20 +1010,20 @@ export default function RecordingPage() {
                 return (
                   <div
                     key={idx}
-                    className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 transition-all ${
+                    className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-md hover:border-indigo-300 ${
                       isCurrent
                         ? "border-indigo-200 bg-indigo-50/50 shadow-sm"
                         : isDone
                         ? "border-slate-100 bg-slate-50 opacity-60"
                         : "border-slate-100 bg-white"
-                    } ${isFuture ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}
+                    } ${isFuture ? "blur-sm select-none opacity-30 pointer-events-none" : "cursor-pointer"}`}
                   >
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] font-bold uppercase ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
                         Question {idx + 1}
                       </span>
                       {isDone && (
-                        <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 animate-scale-up">
                           <IconCheck />
                         </span>
                       )}
@@ -1033,8 +1039,8 @@ export default function RecordingPage() {
                   </div>
                 );
               })}
-            </aside>
-          )}
+            </div>
+          </aside>
         </div>
 
         {/* ── FOOTER: Waveform & Subtitle transcript area ── */}
@@ -1072,6 +1078,29 @@ export default function RecordingPage() {
           30%  { opacity: 1; transform: scale(1.0); }
           85%  { opacity: 1; transform: scale(1.0); }
           100% { opacity: 0; transform: scale(0.7); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; backdrop-filter: blur(0px); }
+          to { opacity: 1; backdrop-filter: blur(8px); }
+        }
+        @keyframes scaleUp {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-scale-up {
+          animation: scaleUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
         /* Custom scrollbar for device settings list */
         .device-scroll::-webkit-scrollbar {
