@@ -2,14 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { HorizontalMarquee } from "@/components/ui/marquee";
 import { AnimatedStatsSection } from "@/components/ui/animated-stats";
+import { ScrollNavbar, Reveal } from "@/components/ui/scroll-effects";
 
-// ─── Design tokens (Conferra hero style)
-// Navbar: #1C1C1E near-black · text white
-// Hero: white bg · display font · centered
-// Accent: #7C3AED (violet/purple) like Conferra's "Start Call" purple
-// Font: Bricolage Grotesque (display) + Inter (body)
-
-// ─── Icon components (SVG, no emoji) ──────────────────────────────────────
+// ─── Icon components ────────────────────────────────────────────────────────
 
 function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
   return (
@@ -44,7 +39,7 @@ function IconArrowUpRight() {
 
 function IconCheck() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -79,26 +74,6 @@ function IconEye() {
   );
 }
 
-function IconChart() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  );
-}
-
-function IconTarget() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="6" />
-      <circle cx="12" cy="12" r="2" />
-    </svg>
-  );
-}
-
 function IconStar() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1">
@@ -107,21 +82,7 @@ function IconStar() {
   );
 }
 
-// ─── Stat badge ────────────────────────────────────────────────────────────
-
-function StatBadge({ value, label, sublabel }: { value: string; label: string; sublabel: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="text-[40px] font-black leading-none tracking-tight text-white">
-        {value}
-      </div>
-      <div className="text-[15px] font-semibold text-white/90">{label}</div>
-      <div className="max-w-[180px] text-[12px] leading-relaxed text-white/45">{sublabel}</div>
-    </div>
-  );
-}
-
-// ─── Feature card ──────────────────────────────────────────────────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function FeatureCard({
   icon, label, title, description, points,
@@ -129,7 +90,7 @@ function FeatureCard({
   icon: React.ReactNode; label: string; title: string; description: string; points: string[];
 }) {
   return (
-    <div className="group flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-8 shadow-sm transition-all duration-300 hover:border-indigo-100 hover:shadow-lg hover:shadow-indigo-500/5">
+    <div className="group flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-8 shadow-sm transition-all duration-300 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-500/6 hover:-translate-y-1">
       <div className="flex size-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
         {icon}
       </div>
@@ -152,8 +113,6 @@ function FeatureCard({
   );
 }
 
-// ─── Step card ─────────────────────────────────────────────────────────────
-
 function StepCard({ num, title, desc }: { num: string; title: string; desc: string }) {
   return (
     <div className="flex gap-5">
@@ -168,11 +127,9 @@ function StepCard({ num, title, desc }: { num: string; title: string; desc: stri
   );
 }
 
-// ─── Testimonial ───────────────────────────────────────────────────────────
-
 function Testimonial({ quote, name, role, score }: { quote: string; name: string; role: string; score: number }) {
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-7 shadow-sm">
+    <div className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-7 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
       <div className="flex gap-0.5">
         {[1,2,3,4,5].map((i) => <IconStar key={i} />)}
       </div>
@@ -197,44 +154,42 @@ export default function LandingPage() {
     <div className="flex min-h-full flex-col bg-white" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       {/* ── NAVBAR (dark pill — exact Conferra style) ── */}
-      <div className="sticky top-0 z-50 flex justify-center px-5 pt-5 pb-3">
-        <nav className="flex w-full max-w-[860px] items-center justify-between rounded-full bg-gradient-to-t from-[#262626] to-[#292929] px-4 py-2.5 shadow-2xl shadow-black/20 ring-1 ring-white/5">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 pl-2">
-            <div className="flex items-center justify-center text-white/90">
-              <IconLogo size={22} />
-            </div>
-            <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
+      <ScrollNavbar>
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 pl-2">
+          <div className="flex items-center justify-center text-white/90">
+            <IconLogo size={22} />
           </div>
+          <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
+        </div>
 
-          {/* Nav links */}
-          <div className="hidden items-center gap-7 md:flex">
-            {["Products", "AI", "Solutions", "Resources", "Pricing", "Contact"].map((item) => (
-              <a
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="text-[14px] font-light text-white transition-colors hover:text-white/80"
-              >
-                {item}
-              </a>
-            ))}
-          </div>
+        {/* Nav links */}
+        <div className="hidden items-center gap-7 md:flex">
+          {["Products", "AI", "Solutions", "Resources", "Pricing", "Contact"].map((item) => (
+            <a
+              key={item}
+              href={`#${item.toLowerCase()}`}
+              className="text-[14px] font-light text-white transition-colors hover:text-white/80"
+            >
+              {item}
+            </a>
+          ))}
+        </div>
 
-          {/* CTA */}
-          <Link
-            href="/simulation/setup"
-            className="cursor-pointer rounded-full border border-indigo-500/40 bg-[#1E1E1E] px-6 py-2 text-[14px] font-light text-white transition-all hover:bg-indigo-500/10"
-          >
-            Sign up free
-          </Link>
-        </nav>
-      </div>
+        {/* CTA */}
+        <Link
+          href="/simulation/setup"
+          className="cursor-pointer rounded-full border border-indigo-500/40 bg-[#1E1E1E] px-6 py-2 text-[14px] font-light text-white transition-all hover:bg-indigo-500/10"
+        >
+          Sign up free
+        </Link>
+      </ScrollNavbar>
 
       {/* ── HERO (clean centered — exact Conferra style) ── */}
       <section className="px-6 pb-0 pt-14 text-center">
         <div className="mx-auto max-w-3xl">
 
-          {/* Eyebrow tag — small bordered pill with arrow like Conferra */}
+          {/* Eyebrow tag */}
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[13px] text-slate-600 shadow-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#7C3AED]">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -244,7 +199,7 @@ export default function LandingPage() {
             <IconArrowUpRight />
           </div>
 
-          {/* Headline — large, semi-bold, tight tracking like Conferra */}
+          {/* Headline */}
           <h1
             className="text-[56px] font-extrabold leading-[1.08] tracking-[-1.5px] text-[#111111] sm:text-[64px] lg:text-[72px]"
             style={{ fontFamily: "'Manrope', 'Space Grotesk', 'Google Sans', sans-serif" }}
@@ -254,13 +209,13 @@ export default function LandingPage() {
             Get Coached by AI.
           </h1>
 
-          {/* Subtitle — slate grey, narrow max-width, like Conferra */}
+          {/* Subtitle */}
           <p className="mx-auto mt-5 max-w-[520px] text-[16px] leading-relaxed text-slate-500">
             A concise, AI-powered platform that evaluates your voice, words, and facial expressions
             — giving you quantified coaching after every mock interview.
           </p>
 
-          {/* CTAs — primary purple filled + secondary outline with arrow */}
+          {/* CTAs */}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/simulation/setup"
@@ -299,7 +254,7 @@ export default function LandingPage() {
               background: "linear-gradient(180deg, #e0e7ff 0%, #f0f4ff 35%, #eef2ff 65%, #ffffff 100%)",
             }}
           />
-          {/* Screenshot card — no border, no shadow, just the rounded clip */}
+          {/* Screenshot card */}
           <div className="relative overflow-hidden rounded-2xl bg-slate-950">
             <video
               src="/videos/recording.mp4"
@@ -309,18 +264,17 @@ export default function LandingPage() {
               muted
               playsInline
             />
-            {/* Tall white fade-out so the bottom of the video dissolves into white */}
+            {/* Tall white fade-out */}
             <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/60 to-transparent" />
           </div>
         </div>
       </section>
 
-      {/* Seamless bridge gradient between hero and marquee */}
+      {/* Seamless bridge */}
       <div className="h-8 bg-gradient-to-b from-white to-slate-50/70" />
 
-      {/* ── SOCIAL PROOF MARQUEE (TECH STACK) ── */}
-      <section className="relative bg-slate-50/70 pb-12 overflow-hidden">
-        {/* Full-width side vignettes — must sit at section level with no px padding interfering */}
+      {/* ── SOCIAL PROOF MARQUEE ── */}
+      <section className="relative bg-slate-50/70 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-40 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-40 bg-gradient-to-l from-white to-transparent" />
 
@@ -328,7 +282,6 @@ export default function LandingPage() {
           Powered by state-of-the-art AI models
         </p>
 
-        {/* No max-w constraint — logos span the full viewport width */}
         <div className="w-full">
           <HorizontalMarquee speed={25} pauseOnHover>
             {[
@@ -357,36 +310,42 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── ANIMATED STATS ── */}
+      {/* ── ANIMATED STATS — full-section breathing room ── */}
       <AnimatedStatsSection />
 
-      {/* ────────────────────────────────────────────────
-          HOW IT WORKS
-      ──────────────────────────────────────────────── */}
-      <section id="how-it-works" className="px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-14 grid gap-10 lg:grid-cols-2 lg:items-start">
+      {/* ── HOW IT WORKS — min-screen ── */}
+      <section id="how-it-works" className="flex min-h-screen items-center px-6 py-28">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="mb-16 grid gap-12 lg:grid-cols-2 lg:items-start">
             {/* Left: steps */}
             <div>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">How it works</p>
-              <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
-                From recording to feedback in minutes.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
-                Lumen guides you through a structured mock interview, then delivers a detailed
-                multi-dimensional report the moment you&apos;re done.
-              </p>
-              <div className="mt-10 flex flex-col gap-0">
-                <StepCard num="01" title="Choose your interview track" desc="Pick from Software Engineering, Product Management, Marketing, UX Design, Data Analyst, or a custom topic." />
-                <StepCard num="02" title="Answer per-question" desc="Each question is recorded separately with a live countdown. Real-time emotion detection runs throughout." />
-                <StepCard num="03" title="AI analyses all dimensions" desc="Audio, facial expressions, and content are evaluated question by question against the specific rubric." />
-                <StepCard num="04" title="Get your score + coaching" desc="A detailed report card shows your scores, transcripts, and actionable feedback for every dimension." />
+              <Reveal>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">How it works</p>
+                <h2 className="text-[48px] font-black leading-tight tracking-[-2px] text-slate-900 lg:text-[56px]">
+                  From recording to feedback in minutes.
+                </h2>
+                <p className="mt-5 text-[17px] leading-relaxed text-slate-500">
+                  Lumen guides you through a structured mock interview, then delivers a detailed
+                  multi-dimensional report the moment you&apos;re done.
+                </p>
+              </Reveal>
+              <div className="mt-12 flex flex-col gap-0">
+                {[
+                  { num: "01", title: "Choose your interview track", desc: "Pick from Software Engineering, Product Management, Marketing, UX Design, Data Analyst, or a custom topic." },
+                  { num: "02", title: "Answer per-question", desc: "Each question is recorded separately with a live countdown. Real-time emotion detection runs throughout." },
+                  { num: "03", title: "AI analyses all dimensions", desc: "Audio, facial expressions, and content are evaluated question by question against the specific rubric." },
+                  { num: "04", title: "Get your score + coaching", desc: "A detailed report card shows your scores, transcripts, and actionable feedback for every dimension." },
+                ].map((step, i) => (
+                  <Reveal key={step.num} delay={i * 0.1}>
+                    <StepCard {...step} />
+                  </Reveal>
+                ))}
               </div>
             </div>
 
-            {/* Right: screenshot */}
-            <div className="sticky top-24">
-              <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/8">
+            {/* Right: screenshot sticky */}
+            <Reveal direction="right" className="sticky top-24">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 transition-all duration-500 hover:shadow-slate-900/16">
                 <Image
                   src="/images/feature-recording.png"
                   alt="Interview recording interface showing live session with per-question navigation"
@@ -395,76 +354,62 @@ export default function LandingPage() {
                   className="w-full"
                 />
               </div>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          FEATURES (3-col grid)
-      ──────────────────────────────────────────────── */}
-      <section id="features" className="bg-slate-50/80 px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
+      {/* ── FEATURES — min-screen ── */}
+      <section id="features" className="flex min-h-screen items-center bg-slate-50/80 px-6 py-28">
+        <div className="mx-auto w-full max-w-5xl">
+          <Reveal className="mb-16 text-center">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">What we measure</p>
-            <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
-              Every dimension that matters in an interview.
+            <h2 className="text-[48px] font-black leading-tight tracking-[-2px] text-slate-900 lg:text-[56px]">
+              Every dimension that matters.
             </h2>
-            <p className="mx-auto mt-4 max-w-[560px] text-[15px] leading-relaxed text-slate-500">
+            <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-relaxed text-slate-500">
               Interviewers form judgements across three channels simultaneously. So does Lumen.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid gap-6 md:grid-cols-3">
-            <FeatureCard
-              icon={<IconEye />}
-              label="01 · Non-Verbal"
-              title="Body, Face & Eyes"
-              description="Posture confidence, facial expression stability, and emotion distribution — the signals interviewers register but rarely say out loud."
-              points={["Live emotion detection", "Stability score", "Nervous rate tracking", "YOLOv8 face analysis"]}
-            />
-            <FeatureCard
-              icon={<IconMic />}
-              label="02 · Delivery"
-              title="Voice as Data"
-              description="Speaking rate, filler word density, pause patterns, and vocal tone — quantified into a single actionable delivery score."
-              points={["Words per minute", "Filler word count", "Pause analysis", "Voice emotion (SER)"]}
-            />
-            <FeatureCard
-              icon={<IconBrain />}
-              label="03 · Content"
-              title="Words That Fit"
-              description="Semantic alignment between your answer and the question. Rubric coverage, argument completeness, and relevance scoring."
-              points={["Semantic similarity", "Rubric coverage", "STAR completeness", "Per-question scoring"]}
-            />
+            {[
+              { icon: <IconEye />, label: "01 · Non-Verbal", title: "Body, Face & Eyes", description: "Posture confidence, facial expression stability, and emotion distribution — the signals interviewers register but rarely say out loud.", points: ["Live emotion detection", "Stability score", "Nervous rate tracking", "YOLOv8 face analysis"] },
+              { icon: <IconMic />, label: "02 · Delivery", title: "Voice as Data", description: "Speaking rate, filler word density, pause patterns, and vocal tone — quantified into a single actionable delivery score.", points: ["Words per minute", "Filler word count", "Pause analysis", "Voice emotion (SER)"] },
+              { icon: <IconBrain />, label: "03 · Content", title: "Words That Fit", description: "Semantic alignment between your answer and the question. Rubric coverage, argument completeness, and relevance scoring.", points: ["Semantic similarity", "Rubric coverage", "STAR completeness", "Per-question scoring"] },
+            ].map((card, i) => (
+              <Reveal key={card.label} delay={i * 0.12}>
+                <FeatureCard {...card} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          FEEDBACK SCREENSHOT SECTION
-      ──────────────────────────────────────────────── */}
-      <section id="methodology" className="px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
+      {/* ── AI FEEDBACK — min-screen ── */}
+      <section id="methodology" className="flex min-h-screen items-center px-6 py-28">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             {/* Screenshot */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/8">
-              <Image
-                src="/images/feature-feedback.png"
-                alt="Lumen detailed feedback report showing score breakdown and coaching tips"
-                width={600}
-                height={460}
-                className="w-full"
-              />
-            </div>
+            <Reveal direction="left">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 transition-all duration-500 hover:shadow-slate-900/16">
+                <Image
+                  src="/images/feature-feedback.png"
+                  alt="Lumen detailed feedback report showing score breakdown and coaching tips"
+                  width={600}
+                  height={460}
+                  className="w-full"
+                />
+              </div>
+            </Reveal>
 
             {/* Text */}
-            <div>
+            <Reveal direction="right">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">AI Feedback</p>
-              <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
-                Feedback that actually coaches, not just scores.
+              <h2 className="text-[48px] font-black leading-tight tracking-[-2px] text-slate-900 lg:text-[56px]">
+                Feedback that actually coaches.
               </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
+              <p className="mt-5 text-[17px] leading-relaxed text-slate-500">
                 Every report includes a weighted fusion score, dimension-specific breakdowns, and
                 actionable coaching tips tailored to your exact answers — not generic advice.
               </p>
@@ -476,7 +421,7 @@ export default function LandingPage() {
                   "Per-question transcript with speech preview",
                   "History tracking across multiple sessions",
                 ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-[14px] text-slate-600">
+                  <li key={item} className="flex items-start gap-3 text-[15px] text-slate-600">
                     <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
                       <IconCheck />
                     </span>
@@ -486,71 +431,59 @@ export default function LandingPage() {
               </ul>
               <Link
                 href="/simulation/setup"
-                className="mt-8 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700"
+                className="mt-10 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-7 py-4 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500"
               >
                 Try it now — it&apos;s free
                 <IconArrowUpRight />
               </Link>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          TESTIMONIALS (3-col)
-      ──────────────────────────────────────────────── */}
-      <section className="bg-slate-50/80 px-6 py-20">
+      {/* ── TESTIMONIALS ── */}
+      <section className="bg-slate-50/80 px-6 py-28">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-12 text-center">
+          <Reveal className="mb-16 text-center">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">Results</p>
-            <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
-              Built for interview preparation that works.
+            <h2 className="text-[48px] font-black leading-tight tracking-[-2px] text-slate-900 lg:text-[56px]">
+              Built for preparation that works.
             </h2>
-          </div>
+          </Reveal>
 
           <div className="grid gap-6 md:grid-cols-3">
-            <Testimonial
-              quote="Finally a tool that tells me WHY my delivery feels off — not just 'speak more confidently'. The WPM and filler breakdown was eye-opening."
-              name="Rizky A."
-              role="Software Engineer Candidate"
-              score={88}
-            />
-            <Testimonial
-              quote="I practiced 3 PM interview questions and immediately saw my STAR structure was incomplete. Fixed it before the real interview."
-              name="Siti N."
-              role="Product Manager Candidate"
-              score={91}
-            />
-            <Testimonial
-              quote="The per-question scoring is what sets this apart. I could see exactly which questions I bombed vs. nailed, not just one average."
-              name="Budi H."
-              role="Data Analyst Candidate"
-              score={79}
-            />
+            {[
+              { quote: "Finally a tool that tells me WHY my delivery feels off — not just 'speak more confidently'. The WPM and filler breakdown was eye-opening.", name: "Rizky A.", role: "Software Engineer Candidate", score: 88 },
+              { quote: "I practiced 3 PM interview questions and immediately saw my STAR structure was incomplete. Fixed it before the real interview.", name: "Siti N.", role: "Product Manager Candidate", score: 91 },
+              { quote: "The per-question scoring is what sets this apart. I could see exactly which questions I bombed vs. nailed, not just one average.", name: "Budi H.", role: "Data Analyst Candidate", score: 79 },
+            ].map((t, i) => (
+              <Reveal key={t.name} delay={i * 0.12}>
+                <Testimonial {...t} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          DARK CTA SECTION (like Conferra "Connect Smarter")
-      ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-slate-900 px-6 py-24 text-center">
+      {/* ── DARK CTA — full viewport ── */}
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-900 px-6 py-24 text-center">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-20 top-0 size-[400px] rounded-full bg-indigo-900/40 blur-[100px]" />
-          <div className="absolute -right-20 bottom-0 size-[400px] rounded-full bg-violet-900/40 blur-[100px]" />
+          <div className="absolute -left-20 top-0 size-[500px] rounded-full bg-indigo-900/40 blur-[120px]" />
+          <div className="absolute -right-20 bottom-0 size-[500px] rounded-full bg-violet-900/40 blur-[120px]" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-indigo-950/60 blur-[150px]" />
         </div>
-        <div className="relative mx-auto max-w-2xl">
+        <Reveal className="relative mx-auto max-w-2xl">
           <p className="mb-4 text-[11px] font-bold uppercase tracking-[3px] text-indigo-400">Get started now</p>
-          <h2 className="text-[48px] font-black leading-tight tracking-[-1.5px] text-white sm:text-[56px]">
+          <h2 className="text-[56px] font-black leading-tight tracking-[-2px] text-white sm:text-[72px]">
             Your next interview starts here.
           </h2>
-          <p className="mx-auto mt-4 max-w-[480px] text-[15px] leading-relaxed text-white/50">
+          <p className="mx-auto mt-5 max-w-[480px] text-[17px] leading-relaxed text-white/50">
             Join thousands of candidates who use Lumen to turn interview anxiety into interview confidence.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/simulation/setup"
-              className="flex cursor-pointer items-center gap-2 rounded-2xl bg-indigo-600 px-8 py-4 text-[15px] font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-[1.02] hover:bg-indigo-500"
+              className="flex cursor-pointer items-center gap-2 rounded-2xl bg-indigo-600 px-8 py-4 text-[15px] font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-[1.03] hover:bg-indigo-500"
             >
               <IconPlay />
               Start Your Free Simulation
@@ -563,18 +496,16 @@ export default function LandingPage() {
               <IconArrowUpRight />
             </Link>
           </div>
-          <p className="mt-5 text-[12px] text-white/30">
+          <p className="mt-6 text-[13px] text-white/30">
             No credit card required &middot; Takes 5 minutes &middot; Instant results
           </p>
-        </div>
+        </Reveal>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          FOOTER
-      ──────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-100 bg-white px-6 py-12">
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-slate-100 bg-white px-6 py-16">
         <div className="mx-auto max-w-5xl">
-          <div className="mb-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2.5">
@@ -638,7 +569,7 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Font & Styles consistency */}
+      {/* Font & Styles */}
       <style>{`
         h1, h2, h3, h4, h5, h6 {
           font-family: 'Manrope', 'Space Grotesk', 'Google Sans', sans-serif !important;
