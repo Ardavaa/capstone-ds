@@ -300,13 +300,13 @@ export default function LandingPage() {
           />
           {/* Screenshot card */}
           <div className="relative overflow-hidden rounded-2xl border border-slate-200/60 shadow-2xl shadow-slate-900/12">
-            <Image
-              src="/images/hero-dashboard.png"
-              alt="Lumen AI interview dashboard showing live emotion detection and score breakdown"
-              width={1100}
-              height={680}
-              className="w-full"
-              priority
+            <video
+              src="/videos/recording.mp4"
+              className="w-full object-cover"
+              autoPlay
+              loop
+              muted
+              playsInline
             />
             {/* Bottom fade so it bleeds into the next section */}
             <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white to-transparent" />
