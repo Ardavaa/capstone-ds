@@ -31,7 +31,17 @@ ALLOWED_FRAME_MIME_TYPES: Final[frozenset[str]] = frozenset({"image/jpeg", "imag
 # ─── Model IDs ───────────────────────────────────────────────────────────────
 
 WHISPER_MODEL_ID: Final[str] = "Systran/faster-whisper-base"
-SBERT_MODEL_ID: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL_ID: Final[str] = "intfloat/multilingual-e5-base"
+CROSS_ENCODER_MODEL_ID: Final[str] = "cross-encoder/mmarco-mMiniLM-L-12-v2"
+# Legacy alias — preflight route key remains ``sbert``.
+SBERT_MODEL_ID: Final[str] = EMBEDDING_MODEL_ID
+
+# Composite content score: semantic + rubric coverage + completeness/STAR.
+CONTENT_WEIGHT_SEMANTIC: Final[float] = 0.50
+CONTENT_WEIGHT_RUBRIC: Final[float] = 0.30
+CONTENT_WEIGHT_COMPLETENESS: Final[float] = 0.20
+CONTENT_SEMANTIC_CROSS_BLEND: Final[float] = 0.60
+CONTENT_CROSS_ENCODER_BLEND: Final[float] = 0.40
 EMOTION_MODEL_ID: Final[str] = "superb/wav2vec2-base-superb-er"
 
 # ─── Voice emotion (SER) ─────────────────────────────────────────────────────

@@ -82,6 +82,7 @@ export type AnalyzeResponse = {
   delivery_score: number;
   non_verbal_score: number;
   transcription: string;
+  content_metrics: ContentMetrics;
   delivery_metrics: DeliveryMetrics;
   emotion_metrics: EmotionMetrics;
   video_emotion_metrics: VideoEmotionMetrics;
@@ -109,10 +110,22 @@ export type SessionRecord = {
   questions?: string[];
 };
 
+export type ContentMetrics = {
+  semantic_score: number;
+  rubric_score: number;
+  completeness_score: number;
+  cosine_similarity: number;
+  cross_encoder_score: number | null;
+  question_text: string;
+  behavioral_question: boolean;
+};
+
 export type RecordingMeta = {
   mimeType: string;
   durationSec: number;
   recordedAt: string;
+  questionText: string;
+  questionIndex: number;
 };
 
 export type CategoryId =
@@ -337,6 +350,17 @@ export function loadAnalysisResult(): AnalyzeResponse | null {
         frames_sampled: 0,
       };
     }
+    if (!parsed.content_metrics) {
+      parsed.content_metrics = {
+        semantic_score: parsed.content_score,
+        rubric_score: parsed.content_score,
+        completeness_score: parsed.content_score,
+        cosine_similarity: 0,
+        cross_encoder_score: null,
+        question_text: "",
+        behavioral_question: false,
+      };
+    }
     return parsed;
   } catch {
     return null;
@@ -410,14 +434,18 @@ export function recordingUploadFilename(mimeType: string): string {
 
 export async function analyzeRecording(
   file: Blob,
-  questionTopic: string,
-  options?: { mimeType?: string },
+  options: {
+    questionTopic: string;
+    questionText: string;
+    mimeType?: string;
+  },
 ): Promise<AnalyzeResponse> {
-  const mimeType = resolveRecordingMimeType(file.type, options?.mimeType);
+  const mimeType = resolveRecordingMimeType(file.type, options.mimeType);
   const uploadBlob = file.type ? file : new Blob([file], { type: mimeType });
   const form = new FormData();
   form.append("file", uploadBlob, recordingUploadFilename(mimeType));
-  form.append("question_topic", questionTopic);
+  form.append("question_text", options.questionText.trim());
+  form.append("question_topic", options.questionTopic.trim());
 
   const response = await fetch(`${API_BASE}/api/analyze`, {
     method: "POST",

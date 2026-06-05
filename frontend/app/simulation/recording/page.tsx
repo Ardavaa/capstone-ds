@@ -363,6 +363,9 @@ export default function RecordingPage() {
     setIsSaving(true);
     setSaveError(null);
 
+    const questionText =
+      simulationConfig.questions[currentQ - 1] ?? simulationConfig.questions[0] ?? "";
+
     recorder.onstop = async () => {
       try {
         const mimeType = recorder.mimeType || "video/webm";
@@ -375,6 +378,8 @@ export default function RecordingPage() {
         await saveRecordingToSession(blob, {
           mimeType,
           durationSec,
+          questionText: questionText,
+          questionIndex: currentQ,
         });
 
         streamRef.current?.getTracks().forEach((t) => t.stop());

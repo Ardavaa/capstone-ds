@@ -12,7 +12,7 @@ Platform simulasi wawancara berbasis AI yang menilai performa kandidat secara **
 |------|-----------|
 | **Rekaman** | Webcam + mikrofon langsung di browser, dengan overlay emosi wajah real-time |
 | **Transkripsi** | Whisper (Indonesia–Inggris) dengan pengaturan anti-halusinasi |
-| **Konten** | Skor relevansi jawaban via S-BERT (semantic similarity) |
+| **Konten** | Skor komposit: relevansi Q↔A (E5 + cross-encoder), rubric, kelengkapan/STAR |
 | **Delivery** | WPM, filler words, analisis jeda, emosi suara (Wav2Vec2 SER) |
 | **Non-verbal** | Deteksi wajah + klasifikasi emosi (YOLOv8 + OpenCV) |
 | **Skor gabungan** | Weighted fusion **40% konten · 30% delivery · 30% non-verbal** |
@@ -174,14 +174,15 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 | `GET` | `/health` | Health check |
 | `GET` | `/api/preflight/{model_key}` | Muat satu model (`whisper`, `wav2vec2`, `sbert`, `yolo`, `mediapipe`) |
 | `POST` | `/api/detect-frame` | Deteksi emosi + bounding box dari satu frame JPEG |
-| `POST` | `/api/analyze` | Analisis penuh rekaman (multipart: `file`, opsional `question_topic`) |
+| `POST` | `/api/analyze` | Analisis penuh rekaman (`file`, `question_text`, opsional `question_topic`) |
 
 Contoh analisis dengan `curl`:
 
 ```bash
 curl -X POST "http://localhost:8000/api/analyze" \
   -F "file=@recording.webm" \
-  -F "question_topic=Data analyst role and SQL experience"
+  -F "question_text=Tell me about a time you handled conflicting stakeholder requirements." \
+  -F "question_topic=product manager behavioral interview"
 ```
 
 ---

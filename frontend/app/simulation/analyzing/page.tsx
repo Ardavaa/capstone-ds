@@ -8,6 +8,7 @@ import {
   analyzeRecording,
   getQuestionTopic,
   loadRecordingFromSession,
+  loadSimulationConfig,
   saveAnalysisResult,
   saveSessionToHistory,
 } from "@/app/lib/analysis";
@@ -77,11 +78,17 @@ export default function AnalyzingPage() {
       }
 
       try {
-        const result = await analyzeRecording(
-          recording.blob,
-          getQuestionTopic(),
-          { mimeType: recording.meta?.mimeType },
-        );
+        const config = loadSimulationConfig();
+        const questionText =
+          recording.meta?.questionText?.trim() ||
+          config.questions[0] ||
+          "Interview practice question";
+
+        const result = await analyzeRecording(recording.blob, {
+          questionTopic: getQuestionTopic(),
+          questionText,
+          mimeType: recording.meta?.mimeType,
+        });
         saveAnalysisResult(result);
         saveSessionToHistory(result, getQuestionTopic());
         clearInterval(stepTimer);

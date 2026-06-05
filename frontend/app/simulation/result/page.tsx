@@ -68,6 +68,10 @@ function ScoreCard({ cat }: { cat: ScoreCategory }) {
 
 function buildCategories(result: AnalyzeResponse): ScoreCategory[] {
   const dm = result.delivery_metrics;
+  const cm = result.content_metrics;
+  const contentDetail = cm
+    ? `${result.feedback.content} (relevance ${cm.semantic_score} · rubric ${cm.rubric_score} · depth ${cm.completeness_score})`
+    : result.feedback.content;
 
   return [
     {
@@ -76,7 +80,7 @@ function buildCategories(result: AnalyzeResponse): ScoreCategory[] {
       weight: "[ 40% ]",
       title: "What you said.",
       score: result.content_score,
-      description: result.feedback.content,
+      description: contentDetail,
       barColor: "#3a8377",
       tagBg: "#d6e8e2",
       tagColor: "#3a8377",

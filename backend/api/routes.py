@@ -16,12 +16,22 @@ import time
 log = logging.getLogger(__name__)
 
 from api.upload_validation import validate_frame_upload, validate_media_upload
-from core.config import EMOTION_DELIVERY_BLEND_WEIGHT, EMOTION_MODEL_ID, SBERT_MODEL_ID, WHISPER_MODEL_ID
+from core.config import (
+    EMOTION_DELIVERY_BLEND_WEIGHT,
+    EMOTION_MODEL_ID,
+    EMBEDDING_MODEL_ID,
+    WHISPER_MODEL_ID,
+)
 from ml_pipeline.audio.analysis import DeliveryAnalysisResult, analyze_delivery
 from ml_pipeline.audio.emotion import EmotionAnalysisResult, analyze_voice_emotion, blend_delivery_score, get_emotion_pipeline
 from ml_pipeline.audio.extraction import AudioExtractionError, AudioExtractionTimeoutError, extract_audio_to_wav
 from ml_pipeline.fusion.scorer import FusionResult, run_fusion
-from ml_pipeline.text.scoring import content_score, get_sbert_model
+from ml_pipeline.text.scoring import (
+    ContentScoreResult,
+    analyze_content,
+    get_embedding_model,
+    get_sbert_model,
+)
 from ml_pipeline.text.transcription import get_transcription_pipeline, transcribe_audio
 from ml_pipeline.video.emotion import (
     FrameDetectionResult,
@@ -75,6 +85,18 @@ class FrameDetectionResponse(BaseModel):
     bbox: BoundingBox | None = None
 
 
+class ContentMetrics(BaseModel):
+    """Content scoring breakdown exposed in the analysis API response."""
+
+    semantic_score: int = Field(ge=0, le=100)
+    rubric_score: int = Field(ge=0, le=100)
+    completeness_score: int = Field(ge=0, le=100)
+    cosine_similarity: float = Field(ge=0.0, le=1.0)
+    cross_encoder_score: int | None = Field(default=None, ge=0, le=100)
+    question_text: str
+    behavioral_question: bool
+
+
 class DeliveryMetrics(BaseModel):
     """Delivery metrics exposed in the analysis API response.
 
@@ -119,6 +141,7 @@ class AnalyzeResponse(BaseModel):
     delivery_score: int = Field(ge=0, le=100)
     non_verbal_score: int = Field(ge=0, le=100)
     transcription: str
+    content_metrics: ContentMetrics
     delivery_metrics: DeliveryMetrics
     emotion_metrics: EmotionMetrics
     video_emotion_metrics: VideoEmotionMetrics
@@ -132,6 +155,7 @@ class _ProcessResult:
     """Internal pipeline result from the worker thread."""
 
     transcription: str
+    content: ContentScoreResult
     delivery: DeliveryAnalysisResult
     emotion: EmotionAnalysisResult
     video_emotion: VideoEmotionResult
@@ -199,17 +223,19 @@ async def detect_frame(file: UploadFile = File(...)) -> FrameDetectionResponse:
 @router.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze_interview(
     file: UploadFile = File(...),
+    question_text: str = Form(default=""),
     question_topic: str = Form(default=""),
 ) -> AnalyzeResponse:
     """Analyze uploaded interview media end-to-end.
 
     Pipeline: ffmpeg extraction → Whisper transcription → delivery + voice emotion →
-    S-BERT content score → video facial emotion (YOLOv8-cls + OpenCV) →
+    E5 content score → video facial emotion (YOLOv8-cls + OpenCV) →
     weighted fusion.
 
     Args:
         file: Uploaded ``.mp4``, ``.wav``, or other media supported by ffmpeg.
-        question_topic: Optional interview question or topic for content scoring.
+        question_text: The interview question the candidate answered (preferred).
+        question_topic: Role/topic context for rubric enrichment and fallback matching.
 
     Returns:
         Structured analysis with scores, metrics, transcript, and feedback.
@@ -219,9 +245,10 @@ async def analyze_interview(
     """
 
     log.info(
-        "analyze: upload received  filename=%r  content_type=%s  topic=%r",
+        "analyze: upload received  filename=%r  content_type=%s  question=%r  topic=%r",
         file.filename,
         file.content_type,
+        question_text[:60] if question_text else "",
         question_topic[:60] if question_topic else "",
     )
 
@@ -258,6 +285,7 @@ async def analyze_interview(
                 _process_interview,
                 upload_path,
                 audio_path,
+                question_text,
                 question_topic,
             )
     except AudioExtractionTimeoutError as exc:
@@ -292,6 +320,15 @@ async def analyze_interview(
         delivery_score=fusion.delivery_score,
         non_verbal_score=fusion.non_verbal_score,
         transcription=result.transcription,
+        content_metrics=ContentMetrics(
+            semantic_score=result.content.semantic_score,
+            rubric_score=result.content.rubric_score,
+            completeness_score=result.content.completeness_score,
+            cosine_similarity=result.content.cosine_similarity,
+            cross_encoder_score=result.content.cross_encoder_score,
+            question_text=result.content.question_used,
+            behavioral_question=result.content.behavioral_question,
+        ),
         delivery_metrics=DeliveryMetrics(
             wpm=delivery.wpm,
             filler_count=delivery.filler_count,
@@ -327,6 +364,7 @@ async def analyze_interview(
 def _process_interview(
     upload_path: Path,
     audio_path: Path,
+    question_text: str,
     question_topic: str,
 ) -> _ProcessResult:
     """Run the full blocking analysis pipeline.
@@ -334,7 +372,8 @@ def _process_interview(
     Args:
         upload_path: Path to the uploaded media file.
         audio_path: Path for normalized WAV output.
-        question_topic: Topic or question text for content scoring.
+        question_text: Interview question the candidate answered.
+        question_topic: Role/topic context for rubric enrichment.
 
     Returns:
         Transcription, delivery metrics, and fusion result.
@@ -353,20 +392,26 @@ def _process_interview(
         if emotion.chunks_analyzed > 0
         else delivery.delivery_score
     )
-    content = content_score(transcription, question_topic)
+    content = analyze_content(
+        transcription,
+        question_text=question_text,
+        question_topic=question_topic,
+    )
     video_emotion = analyze_video_emotion(upload_path)
     fusion = run_fusion(
-        content,
+        content.total,
         delivery,
         video_emotion.non_verbal_score,
         transcription,
         emotion=emotion,
         video_emotion=video_emotion,
         blended_delivery_score=blended_delivery,
+        content_details=content,
     )
 
     return _ProcessResult(
         transcription=transcription,
+        content=content,
         delivery=delivery,
         emotion=emotion,
         video_emotion=video_emotion,
@@ -424,7 +469,7 @@ def _run_preflight(key: str, label: str, model_id: str, loader: object) -> Prefl
 _PREFLIGHT_MODELS = [
     ("whisper",   "Whisper ASR",        WHISPER_MODEL_ID,  get_transcription_pipeline),
     ("wav2vec2",  "Wav2Vec2 Voice SER", EMOTION_MODEL_ID,  get_emotion_pipeline),
-    ("sbert",     "S-BERT Content",     SBERT_MODEL_ID,    get_sbert_model),
+    ("sbert",     "E5 Content Embed",   EMBEDDING_MODEL_ID, get_embedding_model),
     ("yolo",      "YOLOv8 Facial",      "best.pt",         get_emotion_model),
     ("mediapipe", "Face Detector",      "yolov8n-face.pt", get_face_detector),
 ]

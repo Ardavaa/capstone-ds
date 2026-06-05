@@ -11,6 +11,7 @@ from core.config import (
 )
 from ml_pipeline.audio.analysis import DeliveryAnalysisResult
 from ml_pipeline.audio.emotion import EmotionAnalysisResult
+from ml_pipeline.text.scoring import ContentScoreResult
 from ml_pipeline.video.emotion import VideoEmotionResult
 
 
@@ -76,6 +77,7 @@ def build_feedback(
     transcription_preview: str,
     emotion: EmotionAnalysisResult | None = None,
     video_emotion: VideoEmotionResult | None = None,
+    content_details: ContentScoreResult | None = None,
 ) -> dict[str, str]:
     """Generate rule-based actionable feedback from analysis metrics.
 
@@ -86,6 +88,7 @@ def build_feedback(
         transcription_preview: Short transcript snippet for content feedback.
         emotion: Optional voice emotion metrics for delivery feedback.
         video_emotion: Optional facial emotion metrics for non-verbal feedback.
+        content_details: Optional content breakdown for richer feedback.
 
     Returns:
         Feedback dictionary with ``content``, ``delivery``, and ``non_verbal`` keys.
@@ -93,15 +96,37 @@ def build_feedback(
 
     preview = transcription_preview[:120] + ("…" if len(transcription_preview) > 120 else "")
 
-    if content_score >= 80:
+    if content_details is not None:
+        if content_details.semantic_score < 55:
+            relevance_hint = "Try to answer the specific question more directly."
+        elif content_details.rubric_score < 55:
+            relevance_hint = "Cover more key points from the question (examples, steps, outcomes)."
+        elif content_details.completeness_score < 55:
+            if content_details.behavioral_question:
+                relevance_hint = (
+                    "Expand using STAR: Situation, Task, Action, and Result with concrete detail."
+                )
+            else:
+                relevance_hint = "Give a fuller explanation with examples and clearer structure."
+        else:
+            relevance_hint = "Good relevance and depth for this question."
+
         content_msg = (
-            f"Strong semantic alignment with the topic. "
+            f"{relevance_hint} "
+            f"(relevance {content_details.semantic_score}/100, "
+            f"rubric {content_details.rubric_score}/100, "
+            f"depth {content_details.completeness_score}/100). "
+            f'Preview: "{preview}"'
+        )
+    elif content_score >= 80:
+        content_msg = (
+            f"Strong alignment with the interview question. "
             f'Preview: "{preview}"'
         )
     elif content_score >= 60:
         content_msg = (
             "Answer is somewhat on-topic — add more concrete examples "
-            "that directly address the question."
+            "that directly address the interview question."
         )
     else:
         content_msg = (
@@ -185,6 +210,7 @@ def run_fusion(
     emotion: EmotionAnalysisResult | None = None,
     video_emotion: VideoEmotionResult | None = None,
     blended_delivery_score: int | None = None,
+    content_details: ContentScoreResult | None = None,
 ) -> FusionResult:
     """Fuse dimension scores and build feedback in one step.
 
@@ -196,6 +222,7 @@ def run_fusion(
         emotion: Optional voice emotion metrics for feedback.
         video_emotion: Optional facial emotion metrics for non-verbal feedback.
         blended_delivery_score: Delivery score after blending fluency + emotion.
+        content_details: Optional content breakdown for feedback messaging.
 
     Returns:
         ``FusionResult`` with final score and feedback.
@@ -220,6 +247,7 @@ def run_fusion(
         transcription,
         emotion=emotion,
         video_emotion=video_emotion,
+        content_details=content_details,
     )
 
     return FusionResult(
