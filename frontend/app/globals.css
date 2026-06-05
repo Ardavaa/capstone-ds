@@ -11,6 +11,8 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --font-display: var(--font-bricolage);
+  --animate-marquee: marquee var(--duration) linear infinite;
+  --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
 }
 
 body {
@@ -22,4 +24,24 @@ body {
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

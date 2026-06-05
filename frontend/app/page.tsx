@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { HorizontalMarquee } from "@/components/ui/marquee";
 
 // ─── Design tokens (Conferra hero style)
 // Navbar: #1C1C1E near-black · text white
@@ -257,17 +258,23 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/simulation/setup"
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#7C3AED] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-[#6D28D9] hover:shadow-violet-500/35"
+              className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-[12px] bg-[#814df5] px-6 py-3 text-[15px] font-medium text-white transition-all hover:bg-[#703ee3]"
             >
-              <IconPlay />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <path d="M23 7l-7 5 7 5V7z" />
+                <rect x="1" y="5" width="15" height="14" rx="3" ry="3" />
+              </svg>
               Start Simulation
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-6 py-3 text-[14px] font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[12px] border border-slate-200 bg-white px-6 py-3 text-[15px] font-medium text-[#111111] transition-all hover:bg-slate-50"
             >
               Learn more
-              <IconArrowUpRight />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 ml-0.5">
+                <line x1="7" y1="17" x2="17" y2="7" />
+                <polyline points="7 7 17 7 17 17" />
+              </svg>
             </Link>
           </div>
 
@@ -302,19 +309,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          SOCIAL PROOF LOGOS (university / tools)
-      ──────────────────────────────────────────────── */}
-      <section className="border-y border-slate-100 bg-slate-50/70 px-6 py-10">
-        <p className="mb-6 text-center text-[11px] font-semibold uppercase tracking-[2px] text-slate-400">
+      {/* ── SOCIAL PROOF MARQUEE (TECH STACK) ── */}
+      <section className="border-y border-slate-100 bg-slate-50/70 px-6 py-12 overflow-hidden">
+        <p className="mb-8 text-center text-[12px] font-bold uppercase tracking-[2.5px] text-slate-400">
           Powered by state-of-the-art AI models
         </p>
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-10 gap-y-4">
-          {["Whisper ASR", "YOLOv8", "Wav2Vec2", "IndoBERT", "S-BERT", "Silero VAD"].map((tech) => (
-            <span key={tech} className="text-[14px] font-bold text-slate-400 transition-colors hover:text-slate-700">
-              {tech}
-            </span>
-          ))}
+        <div className="relative mx-auto w-full max-w-5xl">
+          {/* Left/Right Vignettes for fade effect */}
+          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-24 bg-gradient-to-r from-slate-50/70 to-transparent" />
+          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-24 bg-gradient-to-l from-slate-50/70 to-transparent" />
+          
+          <HorizontalMarquee speed={25} pauseOnHover>
+            {/* We double the items so the marquee flows smoothly without weird gaps. */}
+            {[
+              { src: "/techstack-logos/openai.svg", alt: "OpenAI" },
+              { src: "/techstack-logos/huggingface.svg", alt: "HuggingFace" },
+              { src: "/techstack-logos/sentence-transformers.webp", alt: "Sentence Transformers" },
+              { src: "/techstack-logos/ultralytics.svg", alt: "Ultralytics" },
+              { src: "/techstack-logos/openai.svg", alt: "OpenAI 2" },
+              { src: "/techstack-logos/huggingface.svg", alt: "HuggingFace 2" },
+              { src: "/techstack-logos/sentence-transformers.webp", alt: "Sentence Transformers 2" },
+              { src: "/techstack-logos/ultralytics.svg", alt: "Ultralytics 2" },
+            ].map((logo, idx) => (
+              <div
+                key={idx}
+                className="mx-12 flex items-center justify-center"
+              >
+                <div className="relative h-10 w-32 md:h-12 md:w-40">
+                  <Image
+                    src={logo.src}
+                    alt={logo.alt}
+                    fill
+                    className="pointer-events-none select-none object-contain grayscale opacity-40 transition-opacity duration-300 hover:opacity-80"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+            ))}
+          </HorizontalMarquee>
         </div>
       </section>
 
