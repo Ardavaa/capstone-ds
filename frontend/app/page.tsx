@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { HorizontalMarquee } from "@/components/ui/marquee";
+import { AnimatedStatsSection } from "@/components/ui/animated-stats";
 
 // ─── Design tokens (Conferra hero style)
 // Navbar: #1C1C1E near-black · text white
@@ -290,42 +291,46 @@ export default function LandingPage() {
         </div>
 
         {/* ── Product screenshot — full-width with mist background ── */}
-        <div className="relative mx-auto mt-14 max-w-5xl">
+        <div className="relative mx-auto mt-14 max-w-5xl pb-0">
           {/* Mist / gradient background behind the screenshot */}
           <div
             className="absolute inset-x-0 bottom-0 top-8 rounded-3xl"
             style={{
-              background: "linear-gradient(160deg, #e0e7ff 0%, #f0f4ff 40%, #e8f0fe 70%, #d1d5f0 100%)",
+              background: "linear-gradient(180deg, #e0e7ff 0%, #f0f4ff 35%, #eef2ff 65%, #ffffff 100%)",
             }}
           />
-          {/* Screenshot card */}
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200/60 shadow-2xl shadow-slate-900/12">
+          {/* Screenshot card — no border, no shadow, just the rounded clip */}
+          <div className="relative overflow-hidden rounded-2xl bg-slate-950">
             <video
               src="/videos/recording.mp4"
-              className="w-full object-cover"
+              className="w-full object-cover block"
               autoPlay
               loop
               muted
               playsInline
             />
-            {/* Bottom fade so it bleeds into the next section */}
-            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white to-transparent" />
+            {/* Tall white fade-out so the bottom of the video dissolves into white */}
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white via-white/60 to-transparent" />
           </div>
         </div>
       </section>
 
+      {/* Seamless bridge gradient between hero and marquee */}
+      <div className="h-8 bg-gradient-to-b from-white to-slate-50/70" />
+
       {/* ── SOCIAL PROOF MARQUEE (TECH STACK) ── */}
-      <section className="border-y border-slate-100 bg-slate-50/70 px-6 py-12 overflow-hidden">
+      <section className="relative bg-slate-50/70 pb-12 overflow-hidden">
+        {/* Full-width side vignettes — must sit at section level with no px padding interfering */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-40 bg-gradient-to-r from-white to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-40 bg-gradient-to-l from-white to-transparent" />
+
         <p className="mb-8 text-center text-[12px] font-bold uppercase tracking-[2.5px] text-slate-400">
           Powered by state-of-the-art AI models
         </p>
-        <div className="relative mx-auto w-full max-w-5xl">
-          {/* Left/Right Vignettes for fade effect */}
-          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-24 bg-gradient-to-r from-slate-50/70 to-transparent" />
-          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-24 bg-gradient-to-l from-slate-50/70 to-transparent" />
-          
+
+        {/* No max-w constraint — logos span the full viewport width */}
+        <div className="w-full">
           <HorizontalMarquee speed={25} pauseOnHover>
-            {/* We double the items so the marquee flows smoothly without weird gaps. */}
             {[
               { src: "/techstack-logos/openai.svg", alt: "OpenAI" },
               { src: "/techstack-logos/huggingface.svg", alt: "HuggingFace" },
@@ -336,10 +341,7 @@ export default function LandingPage() {
               { src: "/techstack-logos/sentence-transformers.webp", alt: "Sentence Transformers 2" },
               { src: "/techstack-logos/ultralytics.svg", alt: "Ultralytics 2" },
             ].map((logo, idx) => (
-              <div
-                key={idx}
-                className="mx-12 flex items-center justify-center"
-              >
+              <div key={idx} className="mx-12 flex items-center justify-center">
                 <div className="relative h-10 w-32 md:h-12 md:w-40">
                   <Image
                     src={logo.src}
@@ -355,17 +357,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ────────────────────────────────────────────────
-          STATS BAR (dark section like Conferra)
-      ──────────────────────────────────────────────── */}
-      <section className="bg-slate-900 px-6 py-16">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-10 sm:grid-cols-4">
-          <StatBadge value="3×" label="Detailed Dimensions" sublabel="Content, delivery, and non-verbal analysed independently" />
-          <StatBadge value="300ms" label="Real-time Detection" sublabel="Facial emotion detection every 300ms during recording" />
-          <StatBadge value="5+" label="Interview Tracks" sublabel="SW Engineer, PM, Marketing, UX, Data, and General" />
-          <StatBadge value="100%" label="Private by Design" sublabel="Recordings processed locally and never stored remotely" />
-        </div>
-      </section>
+      {/* ── ANIMATED STATS ── */}
+      <AnimatedStatsSection />
 
       {/* ────────────────────────────────────────────────
           HOW IT WORKS

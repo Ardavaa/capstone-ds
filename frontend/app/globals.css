@@ -21,6 +21,11 @@ body {
   font-family: "DM Sans", system-ui, sans-serif;
 }
 
+/* Marquee Animation */
+.animate-marquee {
+  animation: marquee var(--duration, 40s) linear infinite;
+}
+
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
