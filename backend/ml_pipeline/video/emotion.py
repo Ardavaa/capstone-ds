@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -12,6 +14,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from core.config import (
+    FFMPEG_TIMEOUT_SEC,
     VIDEO_EMOTION_MODEL_PATH,
     VIDEO_FACE_DETECTION_CONFIDENCE,
     VIDEO_FACE_DETECTOR_MODEL_PATH,
@@ -339,8 +342,8 @@ def _null_result() -> FrameDetectionResult:
     )
 
 
-def _sample_frames(video_path: Path, target_fps: float) -> list[np.ndarray]:
-    """Read a video and uniformly sample frames at the target frame rate."""
+def _sample_frames_opencv(video_path: Path, target_fps: float) -> list[np.ndarray]:
+    """Sample frames with OpenCV (works for some MP4 builds, often not for WebM)."""
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -365,6 +368,76 @@ def _sample_frames(video_path: Path, target_fps: float) -> list[np.ndarray]:
 
     cap.release()
     return frames
+
+
+def _sample_frames_ffmpeg(video_path: Path, target_fps: float) -> list[np.ndarray]:
+    """Extract frames with ffmpeg when OpenCV cannot decode browser WebM uploads."""
+
+    with tempfile.TemporaryDirectory(prefix="lumen-video-frames-") as tmp:
+        pattern = str(Path(tmp) / "frame_%04d.jpg")
+        command = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(video_path),
+            "-vf",
+            f"fps={target_fps}",
+            "-q:v",
+            "2",
+            pattern,
+        ]
+        try:
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=FFMPEG_TIMEOUT_SEC,
+            )
+        except FileNotFoundError:
+            log.warning("VideoEmotion: ffmpeg not found; cannot sample frames from %s", video_path.name)
+            return []
+        except subprocess.TimeoutExpired:
+            log.warning("VideoEmotion: ffmpeg frame extraction timed out for %s", video_path.name)
+            return []
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            log.warning(
+                "VideoEmotion: ffmpeg frame extraction failed for %s — %s",
+                video_path.name,
+                stderr,
+            )
+            return []
+
+        frames: list[np.ndarray] = []
+        for jpg_path in sorted(Path(tmp).glob("frame_*.jpg")):
+            frame = cv2.imread(str(jpg_path))
+            if frame is not None:
+                frames.append(frame)
+        return frames
+
+
+def _sample_frames(video_path: Path, target_fps: float) -> list[np.ndarray]:
+    """Read a video and uniformly sample frames at the target frame rate.
+
+    Browser ``MediaRecorder`` uploads are usually WebM (VP9/Opus). OpenCV's
+    ``VideoCapture`` often cannot open those files on Windows, while live preview
+    detection uses raw JPEG frames instead. Fall back to ffmpeg so post-recording
+    analysis sees the same faces as the recording overlay.
+    """
+
+    frames = _sample_frames_opencv(video_path, target_fps)
+    if frames:
+        return frames
+
+    log.info(
+        "VideoEmotion: OpenCV read 0 frames from %s; using ffmpeg fallback",
+        video_path.name,
+    )
+    return _sample_frames_ffmpeg(video_path, target_fps)
 
 
 def _default_result(frames_sampled: int) -> VideoEmotionResult:
