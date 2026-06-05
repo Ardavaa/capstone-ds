@@ -5,9 +5,17 @@ from typing import Final
 
 # ─── Upload and extraction limits ────────────────────────────────────────────
 
-MAX_UPLOAD_BYTES: Final[int] = 100 * 1024 * 1024
-MAX_FRAME_UPLOAD_BYTES: Final[int] = 5 * 1024 * 1024
+MAX_UPLOAD_BYTES: Final[int] = 5000 * 1024 * 1024 # 5GB
+MAX_FRAME_UPLOAD_BYTES: Final[int] = 500 * 1024 * 1024
 FFMPEG_TIMEOUT_SEC: Final[float] = 60.0
+
+# ─── Recording duration quality thresholds ────────────────────────────────────
+# Recordings shorter than this are considered too short to produce reliable scores.
+# A linear penalty is applied between 0 and MIN_DURATION_FULL_SCORE_SEC.
+# Below DURATION_FLOOR_SEC the score is hard-capped regardless.
+MIN_DURATION_FULL_SCORE_SEC: Final[float] = 30.0   # below this → penalty begins
+DURATION_FLOOR_SEC: Final[float] = 5.0             # below this → hard cap at 20
+DURATION_HARD_CAP_SCORE: Final[int] = 20           # maximum score when below floor
 ALLOWED_UPLOAD_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {".mp4", ".mov", ".m4v", ".webm", ".wav", ".mp3", ".m4a", ".aac", ".ogg"},
 )

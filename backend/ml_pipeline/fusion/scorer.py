@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.config import (
+    DURATION_FLOOR_SEC,
+    DURATION_HARD_CAP_SCORE,
+    MIN_DURATION_FULL_SCORE_SEC,
     WEIGHT_CONTENT,
     WEIGHT_DELIVERY,
     WEIGHT_NON_VERBAL,
@@ -33,6 +36,31 @@ class FusionResult:
     non_verbal_score: int
     feedback: dict[str, str]
 
+
+def _duration_penalty_factor(duration_sec: float) -> tuple[float, bool]:
+    """Return a (multiplier, hard_capped) tuple for score adjustment based on duration.
+
+    Recordings under DURATION_FLOOR_SEC are hard-capped at DURATION_HARD_CAP_SCORE.
+    Recordings between DURATION_FLOOR_SEC and MIN_DURATION_FULL_SCORE_SEC receive
+    a linear penalty that scales scores down proportionally.
+    Recordings at or above MIN_DURATION_FULL_SCORE_SEC are not penalized.
+
+    Args:
+        duration_sec: Total recording duration in seconds.
+
+    Returns:
+        (multiplier, hard_capped) where multiplier ∈ (0, 1] and
+        hard_capped=True means the caller should enforce the hard cap.
+    """
+    if duration_sec < DURATION_FLOOR_SEC:
+        return 0.0, True  # signal hard cap
+    if duration_sec < MIN_DURATION_FULL_SCORE_SEC:
+        # Linear ramp: 0 at floor → 1.0 at full threshold
+        factor = (duration_sec - DURATION_FLOOR_SEC) / (
+            MIN_DURATION_FULL_SCORE_SEC - DURATION_FLOOR_SEC
+        )
+        return max(0.0, min(1.0, factor)), False
+    return 1.0, False
 
 def fuse(
     content_score: int,
@@ -78,6 +106,7 @@ def build_feedback(
     emotion: EmotionAnalysisResult | None = None,
     video_emotion: VideoEmotionResult | None = None,
     content_details: ContentScoreResult | None = None,
+    duration_sec: float = 0.0,
 ) -> dict[str, str]:
     """Generate rule-based actionable feedback from analysis metrics.
 
@@ -89,10 +118,29 @@ def build_feedback(
         emotion: Optional voice emotion metrics for delivery feedback.
         video_emotion: Optional facial emotion metrics for non-verbal feedback.
         content_details: Optional content breakdown for richer feedback.
+        duration_sec: Recording duration used to inject a short-answer warning.
 
     Returns:
         Feedback dictionary with ``content``, ``delivery``, and ``non_verbal`` keys.
     """
+
+    # ── Short-recording guard ────────────────────────────────────────────────
+    if duration_sec < DURATION_FLOOR_SEC:
+        short_warning = (
+            f"⚠️ Recording is too short ({duration_sec:.0f}s). "
+            "Scores are unreliable — please record a full answer of at least 30 seconds."
+        )
+        return {
+            "content": short_warning,
+            "delivery": short_warning,
+            "non_verbal": short_warning,
+        }
+    duration_note = ""
+    if duration_sec < MIN_DURATION_FULL_SCORE_SEC:
+        duration_note = (
+            f" ⚠️ Answer was only {duration_sec:.0f}s — "
+            f"aim for at least {int(MIN_DURATION_FULL_SCORE_SEC)}s for a reliable score."
+        )
 
     preview = transcription_preview[:120] + ("…" if len(transcription_preview) > 120 else "")
 
@@ -195,6 +243,11 @@ def build_feedback(
             "visible and well-lit throughout the recording."
         )
 
+    if duration_note:
+        content_msg += duration_note
+        delivery_msg += duration_note
+        non_verbal_msg += duration_note
+
     return {
         "content": content_msg,
         "delivery": delivery_msg,
@@ -240,6 +293,22 @@ def run_fusion(
         non_verbal_score,
         include_non_verbal=include_non_verbal,
     )
+
+    # ── Duration penalty ──────────────────────────────────────────────────────
+    # Very short recordings produce unreliable scores. We either hard-cap or
+    # linearly scale the final score down to discourage gaming by stopping early.
+    penalty_factor, hard_capped = _duration_penalty_factor(delivery.duration_sec)
+    if hard_capped:
+        final = min(final, DURATION_HARD_CAP_SCORE)
+        content_score = min(content_score, DURATION_HARD_CAP_SCORE)
+        delivery_score = min(delivery_score, DURATION_HARD_CAP_SCORE)
+        non_verbal_score = min(non_verbal_score, DURATION_HARD_CAP_SCORE)
+    elif penalty_factor < 1.0:
+        final = int(round(final * penalty_factor))
+        content_score = int(round(content_score * penalty_factor))
+        delivery_score = int(round(delivery_score * penalty_factor))
+        non_verbal_score = int(round(non_verbal_score * penalty_factor))
+
     feedback = build_feedback(
         content_score,
         delivery,
@@ -248,6 +317,7 @@ def run_fusion(
         emotion=emotion,
         video_emotion=video_emotion,
         content_details=content_details,
+        duration_sec=delivery.duration_sec,
     )
 
     return FusionResult(

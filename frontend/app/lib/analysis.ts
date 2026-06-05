@@ -8,6 +8,8 @@ export const STORAGE_KEYS = {
   analysisResult: "lumenAnalysisResult",
   history: "lumenHistory",
   selectedSessionId: "lumenSelectedSessionId",
+  // Per-question multi-answer session
+  sessionAnswers: "lumenSessionAnswers",
 } as const;
 
 // ─── IndexedDB helpers (used for large blob storage) ─────────────────────────
@@ -126,6 +128,16 @@ export type RecordingMeta = {
   recordedAt: string;
   questionText: string;
   questionIndex: number;
+};
+
+/** One recorded answer blob stored in IndexedDB. */
+export type SessionAnswer = {
+  questionIndex: number;
+  questionText: string;
+  idbKey: string; // key into IndexedDB for the blob
+  mimeType: string;
+  durationSec: number;
+  recordedAt: string;
 };
 
 export type CategoryId =
@@ -258,14 +270,53 @@ export async function saveRecordingToSession(
   meta: Omit<RecordingMeta, "recordedAt"> & { recordedAt?: string },
 ): Promise<void> {
   await _idbPut(STORAGE_KEYS.recording, blob);
-  sessionStorage.setItem(
-    STORAGE_KEYS.recordingMeta,
-    JSON.stringify({
-      mimeType: meta.mimeType,
-      durationSec: meta.durationSec,
-      recordedAt: meta.recordedAt ?? new Date().toISOString(),
-    } satisfies RecordingMeta),
-  );
+  const fullMeta: RecordingMeta = {
+    mimeType: meta.mimeType,
+    durationSec: meta.durationSec,
+    recordedAt: meta.recordedAt ?? new Date().toISOString(),
+    questionText: meta.questionText,
+    questionIndex: meta.questionIndex,
+  };
+  sessionStorage.setItem(STORAGE_KEYS.recordingMeta, JSON.stringify(fullMeta));
+}
+
+/**
+ * Save a single answer blob for a given question index.
+ * Blobs are stored in IndexedDB under a per-answer key; metadata in sessionStorage.
+ */
+export async function saveAnswerToSession(
+  blob: Blob,
+  meta: Omit<SessionAnswer, "idbKey">,
+): Promise<void> {
+  const idbKey = `lumenAnswer_Q${meta.questionIndex}`;
+  await _idbPut(idbKey, blob);
+  const answer: SessionAnswer = { ...meta, idbKey };
+  const existing = loadSessionAnswers();
+  const updated = existing.filter((a) => a.questionIndex !== meta.questionIndex);
+  updated.push(answer);
+  updated.sort((a, b) => a.questionIndex - b.questionIndex);
+  sessionStorage.setItem(STORAGE_KEYS.sessionAnswers, JSON.stringify(updated));
+}
+
+/** Load all per-question answer metadata from sessionStorage. */
+export function loadSessionAnswers(): SessionAnswer[] {
+  const raw = sessionStorage.getItem(STORAGE_KEYS.sessionAnswers);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as SessionAnswer[];
+  } catch {
+    return [];
+  }
+}
+
+/** Clear all per-question session answers (call before a new interview). */
+export function clearSessionAnswers(): void {
+  sessionStorage.removeItem(STORAGE_KEYS.sessionAnswers);
+}
+
+/** Load the blob for a specific answer by its IndexedDB key. */
+export async function loadAnswerBlob(idbKey: string): Promise<Blob | null> {
+  return _idbGet<Blob>(idbKey);
 }
 
 export async function loadRecordingFromSession(): Promise<{
