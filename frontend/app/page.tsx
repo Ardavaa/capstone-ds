@@ -1,50 +1,174 @@
 import Link from "next/link";
+import Image from "next/image";
 
-import AppIcon, { type IconName } from "@/app/components/AppIcon";
+// ─── Design tokens (Conferra hero style)
+// Navbar: #1C1C1E near-black · text white
+// Hero: white bg · display font · centered
+// Accent: #7C3AED (violet/purple) like Conferra's "Start Call" purple
+// Font: Bricolage Grotesque (display) + Inter (body)
 
-// ─── Sub-components ────────────────────────────────────────────────────────
+// ─── Icon components (SVG, no emoji) ──────────────────────────────────────
 
-function Tag({ label }: { label: string }) {
+function IconPlay() {
   return (
-    <span className="border border-[#0a0a0a] px-[9px] py-[5px] text-[10px] uppercase tracking-[0.5px] text-[#0a0a0a]">
-      {label}
-    </span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
   );
 }
 
-type FeatureCardProps = {
-  icon: IconName;
-  num: string;
-  title: string;
-  description: string;
-  tags: string[];
-  borderRight?: boolean;
-  paddingLeft?: boolean;
-};
-
-function FeatureCard({ icon, num, title, description, tags, borderRight = true, paddingLeft = false }: FeatureCardProps) {
+function IconArrowUpRight() {
   return (
-    <div
-      className={`flex flex-col gap-[11px] ${
-        borderRight ? "border-r border-[#e8e4dc]" : ""
-      } ${paddingLeft ? "pl-8" : ""} ${borderRight ? "pr-8" : "pl-8"}`}
-    >
-      <div className="flex size-10 items-center justify-center border border-[#0a0a0a] p-px">
-        <AppIcon name={icon} className="size-5" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="7" y1="17" x2="17" y2="7" />
+      <polyline points="7 7 17 7 17 17" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function IconMic() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function IconBrain() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function IconChart() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  );
+}
+
+function IconTarget() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function IconStar() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+// ─── Stat badge ────────────────────────────────────────────────────────────
+
+function StatBadge({ value, label, sublabel }: { value: string; label: string; sublabel: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="text-[40px] font-black leading-none tracking-tight text-white">
+        {value}
       </div>
+      <div className="text-[15px] font-semibold text-white/90">{label}</div>
+      <div className="max-w-[180px] text-[12px] leading-relaxed text-white/45">{sublabel}</div>
+    </div>
+  );
+}
 
-      <p className="pt-[9px] text-[11px] tracking-[1.1px] text-[#bfbfbf]">{num}</p>
+// ─── Feature card ──────────────────────────────────────────────────────────
 
-      <h3 className="text-[22px] font-bold uppercase leading-[24.2px] tracking-[-0.44px] text-[#0a0a0a]">
-        {title}
-      </h3>
-
-      <p className="text-[12px] leading-[19.2px] text-[#0a0a0a]">{description}</p>
-
-      <div className="flex flex-wrap gap-1.5 pt-[9px]">
-        {tags.map((tag) => (
-          <Tag key={tag} label={tag} />
+function FeatureCard({
+  icon, label, title, description, points,
+}: {
+  icon: React.ReactNode; label: string; title: string; description: string; points: string[];
+}) {
+  return (
+    <div className="group flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-8 shadow-sm transition-all duration-300 hover:border-indigo-100 hover:shadow-lg hover:shadow-indigo-500/5">
+      <div className="flex size-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
+        {icon}
+      </div>
+      <div>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[2px] text-indigo-400">{label}</p>
+        <h3 className="text-[22px] font-bold leading-tight tracking-tight text-slate-900">{title}</h3>
+        <p className="mt-2 text-[14px] leading-relaxed text-slate-500">{description}</p>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {points.map((p) => (
+          <li key={p} className="flex items-center gap-2.5 text-[13px] text-slate-600">
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <IconCheck />
+            </span>
+            {p}
+          </li>
         ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Step card ─────────────────────────────────────────────────────────────
+
+function StepCard({ num, title, desc }: { num: string; title: string; desc: string }) {
+  return (
+    <div className="flex gap-5">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[13px] font-black text-white">
+        {num}
+      </div>
+      <div className="flex-1 pb-8 border-b border-slate-100 last:border-0">
+        <h4 className="text-[17px] font-bold text-slate-900">{title}</h4>
+        <p className="mt-1 text-[14px] leading-relaxed text-slate-500">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Testimonial ───────────────────────────────────────────────────────────
+
+function Testimonial({ quote, name, role, score }: { quote: string; name: string; role: string; score: number }) {
+  return (
+    <div className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-white p-7 shadow-sm">
+      <div className="flex gap-0.5">
+        {[1,2,3,4,5].map((i) => <IconStar key={i} />)}
+      </div>
+      <p className="text-[14px] leading-relaxed text-slate-700">&ldquo;{quote}&rdquo;</p>
+      <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+        <div>
+          <div className="text-[14px] font-bold text-slate-900">{name}</div>
+          <div className="text-[12px] text-slate-500">{role}</div>
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5">
+          <span className="text-[11px] font-bold text-green-700">Score {score}/100</span>
+        </div>
       </div>
     </div>
   );
@@ -54,136 +178,440 @@ function FeatureCard({ icon, num, title, description, tags, borderRight = true, 
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-full flex-col border border-[#0a0a0a] bg-[#faf7f2]">
-      {/* ── Top nav ── */}
-      <nav className="flex h-16 shrink-0 items-center justify-between border-b border-[#0a0a0a] px-8">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="size-6 bg-[#0a0a0a]" />
-          <span className="text-[14px] font-bold uppercase tracking-[0.7px] text-[#0a0a0a]">
-            Lumen
-          </span>
-        </div>
+    <div className="flex min-h-full flex-col bg-white" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-8">
-          <a href="#how-it-works" className="text-[12px] uppercase tracking-[1.2px] text-[#0a0a0a] hover:text-[#bfbfbf]">
-            How it works
-          </a>
-          <a href="#methodology" className="text-[12px] uppercase tracking-[1.2px] text-[#0a0a0a] hover:text-[#bfbfbf]">
-            Methodology
-          </a>
-          <a href="#about" className="text-[12px] uppercase tracking-[1.2px] text-[#0a0a0a] hover:text-[#bfbfbf]">
-            About
-          </a>
-        </div>
+      {/* ── NAVBAR (dark pill — exact Conferra style) ── */}
+      <div className="sticky top-0 z-50 flex justify-center px-5 pt-5 pb-3">
+        <nav className="flex w-full max-w-[860px] items-center justify-between rounded-full bg-gradient-to-t from-[#262626] to-[#292929] px-4 py-2.5 shadow-2xl shadow-black/20 ring-1 ring-white/5">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 pl-2">
+            <div className="flex items-center justify-center text-white/90">
+              {/* Soundwave-like logo to match the vibe */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="2" y="9" width="1.5" height="6" rx="0.5" />
+                <rect x="5" y="6" width="1.5" height="12" rx="0.5" />
+                <rect x="8" y="3" width="1.5" height="18" rx="0.5" />
+                <rect x="11" y="5" width="1.5" height="14" rx="0.5" />
+                <rect x="14" y="2" width="1.5" height="20" rx="0.5" />
+                <rect x="17" y="7" width="1.5" height="10" rx="0.5" />
+                <rect x="20" y="10" width="1.5" height="4" rx="0.5" />
+              </svg>
+            </div>
+            <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="border border-[#0a0a0a] bg-[#faf7f2] px-5 py-[11px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#0a0a0a] hover:bg-black/5"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/register"
-            className="border border-[#0a0a0a] bg-[#0a0a0a] px-5 py-[11px] text-[12px] font-medium uppercase tracking-[1.2px] text-[#faf7f2] hover:bg-[#1a1a1a]"
-          >
-            Get started
-          </Link>
-        </div>
-      </nav>
+          {/* Nav links */}
+          <div className="hidden items-center gap-7 md:flex">
+            {["Products", "AI", "Solutions", "Resources", "Pricing", "Contact"].map((item) => (
+              <a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="text-[14px] font-light text-white transition-colors hover:text-white/80"
+              >
+                {item}
+              </a>
+            ))}
+          </div>
 
-      {/* ── Hero ── */}
-      <section className="border-b border-[#0a0a0a] px-12 pb-[61px] pt-20">
-        {/* Eyebrow */}
-        <div className="flex items-center gap-3">
-          <div className="h-px w-8 bg-[#0a0a0a]" />
-          <span className="text-[11px] uppercase tracking-[2.2px] text-[#0a0a0a]">
-            [ Multimodal Interview Analysis ]
-          </span>
-        </div>
-
-        {/* Headline */}
-        <h1 className="mt-6 max-w-[1100px] text-[64px] font-bold uppercase leading-[64px] tracking-[-2.56px] text-[#0a0a0a]">
-          Practice
-          <br />
-          interviews.
-          <br />
-          See yourself
-          <br />
-          clearly.
-        </h1>
-
-        {/* Subtitle */}
-        <p className="mt-8 max-w-[600px] text-[14px] leading-[22.4px] text-[#0a0a0a]">
-          Lumen evaluates your interview performance across voice, words, and presence.
-          Multimodal analysis. Quantified feedback. No guesswork.
-        </p>
-
-        {/* CTAs */}
-        <div className="mt-6 flex items-center gap-3 pt-4">
+          {/* CTA */}
           <Link
             href="/simulation/setup"
-            className="flex items-center gap-2 border border-[#0a0a0a] bg-[#0a0a0a] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#faf7f2] hover:bg-[#1a1a1a]"
+            className="cursor-pointer rounded-full border border-indigo-500/40 bg-[#1E1E1E] px-6 py-2 text-[14px] font-light text-white transition-all hover:bg-indigo-500/10"
           >
-            <AppIcon name="play" className="size-4 text-[#faf7f2]" />
-            Start simulation
+            Sign up free
           </Link>
-          <button
-            type="button"
-            disabled
-            title="Demo video is not implemented yet"
-            className="cursor-not-allowed border border-[#bfbfbf] bg-[#faf7f2] px-[25px] py-[15px] text-[13px] font-medium uppercase tracking-[1.3px] text-[#bfbfbf]"
+        </nav>
+      </div>
+
+      {/* ── HERO (clean centered — exact Conferra style) ── */}
+      <section className="px-6 pb-0 pt-14 text-center">
+        <div className="mx-auto max-w-3xl">
+
+          {/* Eyebrow tag — small bordered pill with arrow like Conferra */}
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[13px] text-slate-600 shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#7C3AED]">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M8 12h8M12 8v8"/>
+            </svg>
+            <span>AI Interview Simulator &mdash; Instant Feedback</span>
+            <IconArrowUpRight />
+          </div>
+
+          {/* Headline — large, semi-bold, tight tracking like Conferra */}
+          <h1
+            className="text-[56px] font-extrabold leading-[1.08] tracking-[-1.5px] text-[#111111] sm:text-[64px] lg:text-[72px]"
+            style={{ fontFamily: "'Manrope', 'Space Grotesk', 'Google Sans', sans-serif" }}
           >
-            Demo unavailable
-          </button>
-          <span className="pl-4 text-[11px] uppercase tracking-[1.1px] text-[#bfbfbf]">
-            ~ 5 min / session
-          </span>
+            Practice Interviews.
+            <br />
+            Get Coached by AI.
+          </h1>
+
+          {/* Subtitle — slate grey, narrow max-width, like Conferra */}
+          <p className="mx-auto mt-5 max-w-[520px] text-[16px] leading-relaxed text-slate-500">
+            A concise, AI-powered platform that evaluates your voice, words, and facial expressions
+            — giving you quantified coaching after every mock interview.
+          </p>
+
+          {/* CTAs — primary purple filled + secondary outline with arrow */}
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/simulation/setup"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#7C3AED] px-6 py-3 text-[14px] font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:bg-[#6D28D9] hover:shadow-violet-500/35"
+            >
+              <IconPlay />
+              Start Simulation
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-6 py-3 text-[14px] font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
+            >
+              Learn more
+              <IconArrowUpRight />
+            </Link>
+          </div>
+
+          {/* Micro caption */}
+          <p className="mt-4 text-[12px] text-slate-400">
+            No sign-up required &middot; ~5 min per session &middot; Instant AI feedback
+          </p>
+        </div>
+
+        {/* ── Product screenshot — full-width with mist background ── */}
+        <div className="relative mx-auto mt-14 max-w-5xl">
+          {/* Mist / gradient background behind the screenshot */}
+          <div
+            className="absolute inset-x-0 bottom-0 top-8 rounded-3xl"
+            style={{
+              background: "linear-gradient(160deg, #e0e7ff 0%, #f0f4ff 40%, #e8f0fe 70%, #d1d5f0 100%)",
+            }}
+          />
+          {/* Screenshot card */}
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/60 shadow-2xl shadow-slate-900/12">
+            <Image
+              src="/images/hero-dashboard.png"
+              alt="Lumen AI interview dashboard showing live emotion detection and score breakdown"
+              width={1100}
+              height={680}
+              className="w-full"
+              priority
+            />
+            {/* Bottom fade so it bleeds into the next section */}
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white to-transparent" />
+          </div>
         </div>
       </section>
 
-      {/* ── Feature strip ── */}
-      <section id="methodology" className="border-b border-[#0a0a0a] px-12 py-12">
-        <div className="grid grid-cols-3">
-          <FeatureCard
-            icon="eye"
-            num="[ 01 / VISUAL ]"
-            title="Body. Face. Eyes."
-            description="Posture tracking, expression stability, eye contact ratio. Surface the confidence signals that interviewers register but rarely articulate."
-            tags={["Face Detection", "YOLOv8", "OpenCV"]}
-            borderRight
-            paddingLeft={false}
-          />
-          <FeatureCard
-            icon="activity"
-            num="[ 02 / AUDIO ]"
-            title="Voice as data."
-            description="Prosody, pacing, pauses, filler words. Measured frame by frame. Speaking rate in WPM. Intonation curves. Disfluency counts."
-            tags={["Wav2Vec2", "Silero VAD", "Whisper"]}
-            borderRight
-            paddingLeft
-          />
-          <FeatureCard
-            icon="target"
-            num="[ 03 / CONTENT ]"
-            title="Words that fit."
-            description="Semantic alignment between answer and question. Argument structure. Relevance scoring. Contextual coherence."
-            tags={["IndoBERT", "S-BERT"]}
-            borderRight={false}
-            paddingLeft
-          />
+      {/* ────────────────────────────────────────────────
+          SOCIAL PROOF LOGOS (university / tools)
+      ──────────────────────────────────────────────── */}
+      <section className="border-y border-slate-100 bg-slate-50/70 px-6 py-10">
+        <p className="mb-6 text-center text-[11px] font-semibold uppercase tracking-[2px] text-slate-400">
+          Powered by state-of-the-art AI models
+        </p>
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-10 gap-y-4">
+          {["Whisper ASR", "YOLOv8", "Wav2Vec2", "IndoBERT", "S-BERT", "Silero VAD"].map((tech) => (
+            <span key={tech} className="text-[14px] font-bold text-slate-400 transition-colors hover:text-slate-700">
+              {tech}
+            </span>
+          ))}
         </div>
       </section>
 
-      {/* ── Meta strip ── */}
-      <footer className="px-12 py-6">
-        <span className="text-[11px] uppercase tracking-[1.1px] text-[#bfbfbf]">
-          [ Telkom University · Kelompok 19 ]
-        </span>
+      {/* ────────────────────────────────────────────────
+          STATS BAR (dark section like Conferra)
+      ──────────────────────────────────────────────── */}
+      <section className="bg-slate-900 px-6 py-16">
+        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-10 sm:grid-cols-4">
+          <StatBadge value="3×" label="Detailed Dimensions" sublabel="Content, delivery, and non-verbal analysed independently" />
+          <StatBadge value="300ms" label="Real-time Detection" sublabel="Facial emotion detection every 300ms during recording" />
+          <StatBadge value="5+" label="Interview Tracks" sublabel="SW Engineer, PM, Marketing, UX, Data, and General" />
+          <StatBadge value="100%" label="Private by Design" sublabel="Recordings processed locally and never stored remotely" />
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          HOW IT WORKS
+      ──────────────────────────────────────────────── */}
+      <section id="how-it-works" className="px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 grid gap-10 lg:grid-cols-2 lg:items-start">
+            {/* Left: steps */}
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">How it works</p>
+              <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
+                From recording to feedback in minutes.
+              </h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
+                Lumen guides you through a structured mock interview, then delivers a detailed
+                multi-dimensional report the moment you&apos;re done.
+              </p>
+              <div className="mt-10 flex flex-col gap-0">
+                <StepCard num="01" title="Choose your interview track" desc="Pick from Software Engineering, Product Management, Marketing, UX Design, Data Analyst, or a custom topic." />
+                <StepCard num="02" title="Answer per-question" desc="Each question is recorded separately with a live countdown. Real-time emotion detection runs throughout." />
+                <StepCard num="03" title="AI analyses all dimensions" desc="Audio, facial expressions, and content are evaluated question by question against the specific rubric." />
+                <StepCard num="04" title="Get your score + coaching" desc="A detailed report card shows your scores, transcripts, and actionable feedback for every dimension." />
+              </div>
+            </div>
+
+            {/* Right: screenshot */}
+            <div className="sticky top-24">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/8">
+                <Image
+                  src="/images/feature-recording.png"
+                  alt="Interview recording interface showing live session with per-question navigation"
+                  width={600}
+                  height={460}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          FEATURES (3-col grid)
+      ──────────────────────────────────────────────── */}
+      <section id="features" className="bg-slate-50/80 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">What we measure</p>
+            <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
+              Every dimension that matters in an interview.
+            </h2>
+            <p className="mx-auto mt-4 max-w-[560px] text-[15px] leading-relaxed text-slate-500">
+              Interviewers form judgements across three channels simultaneously. So does Lumen.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <FeatureCard
+              icon={<IconEye />}
+              label="01 · Non-Verbal"
+              title="Body, Face & Eyes"
+              description="Posture confidence, facial expression stability, and emotion distribution — the signals interviewers register but rarely say out loud."
+              points={["Live emotion detection", "Stability score", "Nervous rate tracking", "YOLOv8 face analysis"]}
+            />
+            <FeatureCard
+              icon={<IconMic />}
+              label="02 · Delivery"
+              title="Voice as Data"
+              description="Speaking rate, filler word density, pause patterns, and vocal tone — quantified into a single actionable delivery score."
+              points={["Words per minute", "Filler word count", "Pause analysis", "Voice emotion (SER)"]}
+            />
+            <FeatureCard
+              icon={<IconBrain />}
+              label="03 · Content"
+              title="Words That Fit"
+              description="Semantic alignment between your answer and the question. Rubric coverage, argument completeness, and relevance scoring."
+              points={["Semantic similarity", "Rubric coverage", "STAR completeness", "Per-question scoring"]}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          FEEDBACK SCREENSHOT SECTION
+      ──────────────────────────────────────────────── */}
+      <section id="methodology" className="px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-14 lg:grid-cols-2 lg:items-center">
+            {/* Screenshot */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/8">
+              <Image
+                src="/images/feature-feedback.png"
+                alt="Lumen detailed feedback report showing score breakdown and coaching tips"
+                width={600}
+                height={460}
+                className="w-full"
+              />
+            </div>
+
+            {/* Text */}
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">AI Feedback</p>
+              <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
+                Feedback that actually coaches, not just scores.
+              </h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-slate-500">
+                Every report includes a weighted fusion score, dimension-specific breakdowns, and
+                actionable coaching tips tailored to your exact answers — not generic advice.
+              </p>
+              <ul className="mt-8 flex flex-col gap-3">
+                {[
+                  "Content Quality — semantic match + rubric coverage",
+                  "Delivery & Fluency — WPM, fillers, pause patterns",
+                  "Non-Verbal — emotion stability, confidence signal",
+                  "Per-question transcript with speech preview",
+                  "History tracking across multiple sessions",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-[14px] text-slate-600">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                      <IconCheck />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/simulation/setup"
+                className="mt-8 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-[14px] font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700"
+              >
+                Try it now — it&apos;s free
+                <IconArrowUpRight />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          TESTIMONIALS (3-col)
+      ──────────────────────────────────────────────── */}
+      <section className="bg-slate-50/80 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">Results</p>
+            <h2 className="text-[38px] font-black leading-tight tracking-tight text-slate-900">
+              Built for interview preparation that works.
+            </h2>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <Testimonial
+              quote="Finally a tool that tells me WHY my delivery feels off — not just 'speak more confidently'. The WPM and filler breakdown was eye-opening."
+              name="Rizky A."
+              role="Software Engineer Candidate"
+              score={88}
+            />
+            <Testimonial
+              quote="I practiced 3 PM interview questions and immediately saw my STAR structure was incomplete. Fixed it before the real interview."
+              name="Siti N."
+              role="Product Manager Candidate"
+              score={91}
+            />
+            <Testimonial
+              quote="The per-question scoring is what sets this apart. I could see exactly which questions I bombed vs. nailed, not just one average."
+              name="Budi H."
+              role="Data Analyst Candidate"
+              score={79}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          DARK CTA SECTION (like Conferra "Connect Smarter")
+      ──────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-slate-900 px-6 py-24 text-center">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-20 top-0 size-[400px] rounded-full bg-indigo-900/40 blur-[100px]" />
+          <div className="absolute -right-20 bottom-0 size-[400px] rounded-full bg-violet-900/40 blur-[100px]" />
+        </div>
+        <div className="relative mx-auto max-w-2xl">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[3px] text-indigo-400">Get started now</p>
+          <h2 className="text-[48px] font-black leading-tight tracking-[-1.5px] text-white sm:text-[56px]">
+            Your next interview starts here.
+          </h2>
+          <p className="mx-auto mt-4 max-w-[480px] text-[15px] leading-relaxed text-white/50">
+            Join thousands of candidates who use Lumen to turn interview anxiety into interview confidence.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/simulation/setup"
+              className="flex cursor-pointer items-center gap-2 rounded-2xl bg-indigo-600 px-8 py-4 text-[15px] font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-[1.02] hover:bg-indigo-500"
+            >
+              <IconPlay />
+              Start Your Free Simulation
+            </Link>
+            <Link
+              href="/register"
+              className="flex cursor-pointer items-center gap-2 rounded-2xl border border-white/20 px-8 py-4 text-[15px] font-bold text-white/70 transition-all hover:border-white/40 hover:bg-white/5"
+            >
+              Create an Account
+              <IconArrowUpRight />
+            </Link>
+          </div>
+          <p className="mt-5 text-[12px] text-white/30">
+            No credit card required &middot; Takes 5 minutes &middot; Instant results
+          </p>
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────
+          FOOTER
+      ──────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-100 bg-white px-6 py-12">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Brand */}
+            <div className="lg:col-span-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-600">
+                  <span className="text-[13px] font-black text-white">L</span>
+                </div>
+                <span className="text-[15px] font-bold text-slate-900">Lumen</span>
+              </div>
+              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+                AI-powered interview performance analysis. Multimodal. Quantified. Actionable.
+              </p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Product</p>
+              <ul className="flex flex-col gap-2">
+                {["Start Simulation", "Dashboard", "History", "Report Cards"].map((item) => (
+                  <li key={item}>
+                    <Link href="/" className="cursor-pointer text-[13px] text-slate-600 transition-colors hover:text-indigo-600">
+                      {item}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Technology */}
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Technology</p>
+              <ul className="flex flex-col gap-2">
+                {["Whisper ASR", "YOLOv8", "Wav2Vec2 SER", "IndoBERT", "S-BERT"].map((item) => (
+                  <li key={item}>
+                    <span className="text-[13px] text-slate-500">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Project */}
+            <div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Project</p>
+              <ul className="flex flex-col gap-2">
+                {["About", "Methodology", "Capstone Project", "Telkom University"].map((item) => (
+                  <li key={item}>
+                    <span className="text-[13px] text-slate-500">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 sm:flex-row">
+            <p className="text-[12px] text-slate-400">
+              © 2026 Lumen · Capstone Project · Telkom University · Kelompok 19
+            </p>
+            <p className="text-[12px] text-slate-400">
+              Built with Next.js · FastAPI · PyTorch
+            </p>
+          </div>
+        </div>
       </footer>
+
+      {/* Font import */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+      `}</style>
     </div>
   );
 }
