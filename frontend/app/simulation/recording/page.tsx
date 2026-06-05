@@ -9,6 +9,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import AppIcon, { type IconName } from "@/app/components/AppIcon";
 
 import {
   clearSessionAnswers,
@@ -27,6 +29,50 @@ import {
 // Typography: Space Grotesk / DM Sans (loaded via next/font or CSS import)
 
 // ─── SVG Icons ──────────────────────────────────────────────────────────────
+
+function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <rect x="2" y="9" width="1.5" height="6" rx="0.5" />
+      <rect x="5" y="6" width="1.5" height="12" rx="0.5" />
+      <rect x="8" y="3" width="1.5" height="18" rx="0.5" />
+      <rect x="11" y="5" width="1.5" height="14" rx="0.5" />
+      <rect x="14" y="2" width="1.5" height="20" rx="0.5" />
+      <rect x="17" y="7" width="1.5" height="10" rx="0.5" />
+      <rect x="20" y="10" width="1.5" height="4" rx="0.5" />
+    </svg>
+  );
+}
+
+function SidebarNavItem({
+  icon,
+  label,
+  active = false,
+  href,
+}: {
+  icon: IconName;
+  label: string;
+  active?: boolean;
+  href?: string;
+}) {
+  const content = (
+    <div
+      title={label}
+      className={`flex size-12 cursor-pointer items-center justify-center rounded-2xl transition-all duration-200 ${
+        active
+          ? "bg-emerald-50 text-emerald-600 shadow-sm"
+          : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+      }`}
+    >
+      <AppIcon name={icon} className="size-5" />
+    </div>
+  );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+  return content;
+}
 
 function IconMic({ muted }: { muted: boolean }) {
   return (
@@ -108,6 +154,16 @@ function getSimulationSnapshot(): string {
   ].join("\n");
 }
 
+function getCategoryIcon(label: string): IconName {
+  const l = label.toLowerCase();
+  if (l.includes("software") || l.includes("dev") || l.includes("engineer") || l.includes("code") || l.includes("sw")) return "code";
+  if (l.includes("product") || l.includes("pm")) return "briefcase";
+  if (l.includes("design") || l.includes("ux") || l.includes("ui")) return "palette";
+  if (l.includes("marketing")) return "megaphone";
+  if (l.includes("data") || l.includes("analyst") || l.includes("analytics")) return "chart";
+  return "target"; // default fallback
+}
+
 // ─── Phases ─────────────────────────────────────────────────────────────────
 type Phase =
   | "camera-init"     // loading camera/mic
@@ -144,6 +200,15 @@ export default function RecordingPage() {
   const [liveEmotion, setLiveEmotion] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<number>(16 / 9);
   const [isSaving, setIsSaving]     = useState(false);
+  const [audioLevels, setAudioLevels] = useState<number[]>(new Array(16).fill(6));
+
+  // Device settings states
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedAudioId, setSelectedAudioId] = useState<string>("");
+  const [selectedVideoId, setSelectedVideoId] = useState<string>("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   // ── Simulation config ──────────────────────────────────────────────────────
   const snap = useSyncExternalStore(subscribeToStorage, getSimulationSnapshot, () => "");
@@ -159,6 +224,84 @@ export default function RecordingPage() {
   const countdownWarn  = remainingSec > 0 && remainingSec <= COUNTDOWN_WARN_SEC;
   const canAdvance     = elapsed >= MIN_ANSWER_SEC && phase === "answering";
   const isLastQ        = currentQ === questions.length;
+
+  const avgLevel = useMemo(() => {
+    if (phase !== "answering" || !micOn) return 0;
+    const sum = audioLevels.reduce((a, b) => a + b, 0);
+    const avg = sum / audioLevels.length;
+    const pct = Math.min(100, Math.max(0, ((avg - 4) / 32) * 100));
+    return pct;
+  }, [audioLevels, phase, micOn]);
+
+  // ── Web Audio Analyser effect for voice detection ─────────────────────────
+  useEffect(() => {
+    if (phase !== "answering" || !micOn || !streamRef.current) {
+      setAudioLevels(new Array(16).fill(6));
+      return;
+    }
+
+    let audioContext: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+    let animationFrameId: number;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      audioContext = new AudioCtx();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64;
+
+      source = audioContext.createMediaStreamSource(streamRef.current);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateVolume = () => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+
+        const newLevels = [];
+        const barsCount = 16;
+        const step = Math.floor(bufferLength / barsCount) || 1;
+
+        for (let i = 0; i < barsCount; i++) {
+          let sum = 0;
+          const start = i * step;
+          for (let j = 0; j < step && (start + j) < bufferLength; j++) {
+            sum += dataArray[start + j];
+          }
+          const average = sum / step;
+          
+          // Apply Gaussian distribution weight to shape the visualizer like a normal distribution (bell curve)
+          const center = 7.5;
+          const sigma = 3.2; // controls the spread of the bell curve
+          const weight = Math.exp(-Math.pow(i - center, 2) / (2 * Math.pow(sigma, 2)));
+
+          const minHeight = 4;
+          const maxHeight = 36;
+          // Scale the volume-driven height variation by the Gaussian weight
+          const height = minHeight + (average / 255) * (maxHeight - minHeight) * weight;
+          newLevels.push(Math.round(height));
+        }
+
+        setAudioLevels(newLevels);
+        animationFrameId = requestAnimationFrame(updateVolume);
+      };
+
+      updateVolume();
+    } catch (err) {
+      console.error("Failed to initialize Web Audio API:", err);
+    }
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (source) source.disconnect();
+      if (audioContext && audioContext.state !== "closed") {
+        void audioContext.close();
+      }
+    };
+  }, [phase, micOn]);
 
   // ── Canvas paint ──────────────────────────────────────────────────────────
   function _paint(detection: FrameDetection | null) {
@@ -240,6 +383,7 @@ export default function RecordingPage() {
           audio: true,
         });
         streamRef.current = stream;
+        setMediaStream(stream);
         if (videoRef.current) videoRef.current.srcObject = stream;
         if (stream.getAudioTracks().length === 0) {
           setMediaError("No microphone detected. Allow mic access and reload.");
@@ -260,6 +404,67 @@ export default function RecordingPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const changeDevices = useCallback(async (audioId: string, videoId: string) => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: {
+          deviceId: videoId ? { exact: videoId } : undefined,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: {
+          deviceId: audioId ? { exact: audioId } : undefined,
+        },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      setMediaStream(stream);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      stream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
+      stream.getVideoTracks().forEach((t) => { t.enabled = cameraOn; });
+
+      setSelectedAudioId(audioId);
+      setSelectedVideoId(videoId);
+    } catch (err) {
+      console.error("Failed to change media devices:", err);
+      setMediaError("Failed to apply selected camera/microphone. Please try again.");
+    }
+  }, [micOn, cameraOn]);
+
+  useEffect(() => {
+    async function getDevices() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audios = devices.filter((d) => d.kind === "audioinput");
+        const videos = devices.filter((d) => d.kind === "videoinput");
+        setAudioDevices(audios);
+        setVideoDevices(videos);
+
+        if (streamRef.current) {
+          const audioTrack = streamRef.current.getAudioTracks()[0];
+          const videoTrack = streamRef.current.getVideoTracks()[0];
+          if (audioTrack && !selectedAudioId) setSelectedAudioId(audioTrack.getSettings().deviceId || "");
+          if (videoTrack && !selectedVideoId) setSelectedVideoId(videoTrack.getSettings().deviceId || "");
+        }
+      } catch (err) {
+        console.error("Error enumerating devices:", err);
+      }
+    }
+
+    if (showSettings) {
+      void getDevices();
+    }
+  }, [showSettings, selectedAudioId, selectedVideoId]);
 
   // ── Countdown tick ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -431,289 +636,439 @@ export default function RecordingPage() {
   // ══════════════════════════════════════════════════════════════════
 
   return (
-    <div className="relative flex h-full flex-col bg-[#0F172A]" style={{ fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif" }}>
-
-      {/* ── Top bar ── */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-6">
-        {/* Left: REC indicator + timer */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span
-              className={`size-2 rounded-full ${
-                phase === "answering"
-                  ? "animate-pulse bg-[#EF4444]"
-                  : phase === "countdown"
-                  ? "bg-[#F59E0B] animate-ping"
-                  : "bg-white/20"
-              }`}
-            />
-            <span className="text-[10px] font-semibold uppercase tracking-[2px] text-white/50">
-              {phase === "answering" ? "REC" : phase === "countdown" ? "STARTING" : "STANDBY"}
-            </span>
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      {/* ── SIDEBAR ── */}
+      <aside className="flex w-[80px] shrink-0 flex-col items-center justify-between border-r border-slate-200 bg-white py-6">
+        <div className="flex flex-col items-center gap-8">
+          {/* Lumen Brand Logo */}
+          <div className="text-indigo-600">
+            <IconLogo size={32} />
           </div>
-          {phase === "answering" && (
-            <div className={`font-mono text-[15px] font-semibold tabular-nums transition-colors ${countdownWarn ? "text-[#EF4444]" : "text-white/80"}`}>
-              {formatTime(elapsed)}<span className="text-white/20 mx-1">/</span>{formatTime(MAX_ANSWER_SEC)}
-            </div>
-          )}
+
+          {/* Navigation Items (redesigned icon style) */}
+          <nav className="flex flex-col gap-6">
+            <SidebarNavItem icon="clock" label="History" href="/history" />
+            <SidebarNavItem icon="dashboard" label="Dashboard" href="/dashboard" />
+            <SidebarNavItem icon="eye" label="Simulation" active />
+            <SidebarNavItem icon="user" label="Profile" />
+            <SidebarNavItem icon="chart" label="Analytics" href="/report-cards" />
+          </nav>
         </div>
 
-        {/* Center: session title */}
-        <span className="text-[11px] font-semibold uppercase tracking-[2px] text-white/40">
-          {config.categoryLabel} Interview
-        </span>
-
-        {/* Right: progress */}
-        <ProgressDots />
-      </header>
-
-      {/* ── Main content ── */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden px-6 py-5">
-
-        {/* ── Camera feed ── */}
-        <div
-          ref={containerRef}
-          className="relative w-full max-w-[640px]"
-          style={{ aspectRatio }}
-        >
-          {/* Inner clipped area */}
-          <div className="absolute inset-0 overflow-hidden rounded-2xl bg-[#1E293B]">
-            {/* Top-left badges */}
-            <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-md bg-black/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/80 backdrop-blur-sm">
-                <span className="size-1.5 rounded-full bg-[#22C55E]" /> LIVE
-              </span>
-              <span className={`flex items-center gap-1.5 rounded-md bg-black/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide backdrop-blur-sm ${micOn ? "text-white/80" : "text-[#EF4444]"}`}>
-                <IconMic muted={!micOn} />
-                {micOn ? "MIC ON" : "MUTED"}
-              </span>
-              {phase === "answering" && (
-                <span className={`rounded-md px-2.5 py-1 font-mono text-[10px] font-bold tabular-nums tracking-wide backdrop-blur-sm ${countdownWarn ? "bg-[#EF4444]/80 text-white" : "bg-black/50 text-white/70"}`}>
-                  {formatTime(remainingSec)} left
-                </span>
-              )}
-            </div>
-
-            {/* Live emotion top-right */}
-            {liveEmotion && cameraOn && phase === "answering" && (
-              <div className="absolute right-3 top-3 z-20 rounded-md bg-black/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/80 backdrop-blur-sm">
-                {liveEmotion}
-              </div>
-            )}
-
-            {/* Video */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              onLoadedMetadata={handleLoadedMetadata}
-              className={`size-full object-cover ${!cameraOn ? "hidden" : ""}`}
-            />
-
-            {/* Camera off placeholder */}
-            {!cameraOn && (
-              <div className="flex size-full items-center justify-center text-white/10">
-                <IconUser />
-              </div>
-            )}
-
-            {/* Media / save error overlay */}
-            {(mediaError || saveError) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6 text-center">
-                <div className="max-w-xs">
-                  <p className="text-[12px] font-medium uppercase tracking-[1px] text-[#EF4444]">
-                    {mediaError ?? saveError}
-                  </p>
-                  {saveError && (
-                    <button
-                      type="button"
-                      onClick={() => { setSaveError(null); setPhase("countdown"); setCountdown(PRE_ROLL_SEC); }}
-                      className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/70 hover:bg-white/10 transition-colors cursor-pointer"
-                    >
-                      Try Again
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── COUNTDOWN overlay ── */}
-            {phase === "countdown" && !mediaError && (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#0F172A]/90 backdrop-blur-sm">
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[3px] text-white/40">
-                  Q{currentQ} of {questions.length} · Starting in
-                </p>
-                <div
-                  key={countdown}
-                  className="text-[96px] font-black leading-none tabular-nums text-white"
-                  style={{ animation: "countdownPop 0.9s ease-out both" }}
-                >
-                  {countdown === 0 ? "GO" : countdown}
-                </div>
-                <p className="mt-4 max-w-[340px] text-center text-[12px] leading-relaxed text-white/30">
-                  {questionText}
-                </p>
-              </div>
-            )}
-
-            {/* ── BETWEEN-Q overlay ── */}
-            {phase === "between" && !mediaError && (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-[#0F172A]/95 backdrop-blur-sm">
-                <div className="flex size-16 items-center justify-center rounded-full bg-[#22C55E]/20 text-[#22C55E]">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <div className="text-center">
-                  <p className="text-[11px] font-semibold uppercase tracking-[3px] text-[#22C55E]">Answer Saved</p>
-                  <p className="mt-1 text-[15px] font-semibold text-white">
-                    Ready for Question {currentQ}?
-                  </p>
-                  <p className="mt-2 max-w-[300px] text-[12px] leading-relaxed text-white/40">
-                    {questions[currentQ - 1]}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setPhase("countdown"); setCountdown(PRE_ROLL_SEC); }}
-                  className="flex items-center gap-2 rounded-xl bg-[#22C55E] px-6 py-3 text-[13px] font-bold uppercase tracking-wide text-white hover:bg-[#16A34A] transition-colors cursor-pointer"
-                >
-                  Start Q{currentQ} <IconArrowRight />
-                </button>
-              </div>
-            )}
-
-            {/* Name badge */}
-            <div className="absolute bottom-3 left-3 rounded-md bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/60 backdrop-blur-sm">
-              Candidate
-            </div>
-          </div>
-
-          {/* Canvas overlay OUTSIDE overflow-hidden */}
-          {cameraOn && (
-            <canvas
-              ref={overlayRef}
-              className="pointer-events-none absolute inset-0"
-              style={{ width: "100%", height: "100%" }}
-            />
-          )}
+        {/* User Profile Avatar */}
+        <div className="size-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-white bg-indigo-600 text-sm shadow-inner">
+          U
         </div>
+      </aside>
 
-        {/* ── Question card ── */}
-        {phase === "answering" && (
-          <div className="w-full max-w-[640px] rounded-2xl border border-white/[0.07] bg-[#1E293B] px-6 py-5">
-            <div className="flex items-start gap-5">
-              {/* Big Q number */}
-              <div className="shrink-0 flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-[2px] text-white/30">Q</span>
-                <span className="text-[40px] font-black leading-none tracking-tight text-[#22C55E]">
-                  {String(currentQ).padStart(2, "0")}
-                </span>
+      {/* ── MAIN CONTENT ── */}
+      <main className="flex flex-1 flex-col overflow-hidden bg-slate-50 p-6">
+        
+        {/* ── HEADER ── */}
+        <div className="flex flex-col gap-4 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  if (confirm("Are you sure you want to exit this simulation? Progress will be lost.")) {
+                    router.push("/simulation/setup");
+                  }
+                }}
+                className="flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                    {questionText || "Mock Interview Session"}
+                  </h1>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+                    <AppIcon name={getCategoryIcon(config.categoryLabel || "")} className="size-3.5 text-slate-500" />
+                    <span>{config.categoryLabel || "AI Simulation"}</span>
+                  </div>
+                </div>
               </div>
-
-              <div className="flex-1 flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[2px] text-[#22C55E]/70">
-                  Now answering
-                </span>
-                <p className="text-[14px] leading-[22px] text-white/85">
-                  {questionText}
-                </p>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mt-4 h-1 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ${countdownWarn ? "bg-[#EF4444]" : "bg-[#22C55E]"}`}
-                style={{ width: `${Math.min(100, (elapsed / MAX_ANSWER_SEC) * 100)}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex justify-between">
-              <span className="text-[10px] text-white/25">
-                {elapsed < MIN_ANSWER_SEC ? `min ${MIN_ANSWER_SEC}s needed` : "ready to advance"}
-              </span>
-              <span className={`text-[10px] ${countdownWarn ? "text-[#EF4444]" : "text-white/25"}`}>
-                {formatTime(remainingSec)} remaining
-              </span>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ── Bottom controls ── */}
-      <div className="shrink-0 border-t border-white/[0.06] py-5">
-        <div className="flex items-center justify-center gap-4">
-          {/* Mic toggle */}
-          <button
-            type="button"
-            onClick={toggleMic}
-            title={micOn ? "Mute mic" : "Unmute mic"}
-            className={`flex size-12 cursor-pointer items-center justify-center rounded-full transition-all duration-200 ${
-              micOn ? "bg-white/8 text-white/70 hover:bg-white/15" : "bg-[#EF4444]/20 text-[#EF4444] ring-1 ring-[#EF4444]/30"
-            }`}
-          >
-            <IconMic muted={!micOn} />
-          </button>
+          {/* ── STATS BAR ── */}
+          <div className="flex items-center justify-between border-b border-slate-200/60 pb-4">
+            <div className="flex items-center gap-6 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <AppIcon name="file" className="size-4 text-slate-400" />
+                <span>Question: <strong className="text-slate-800">{currentQ} of {questions.length}</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AppIcon name="clock" className="size-4 text-slate-400" />
+                <span>Required: <strong className="text-slate-800">{MIN_ANSWER_SEC}s</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AppIcon name="target" className="size-4 text-slate-400" />
+                <span>Maximum: <strong className="text-slate-800">{formatTime(MAX_ANSWER_SEC)}</strong></span>
+              </div>
+            </div>
 
-          {/* Camera toggle */}
-          <button
-            type="button"
-            onClick={toggleCamera}
-            title={cameraOn ? "Turn off camera" : "Turn on camera"}
-            className={`flex size-12 cursor-pointer items-center justify-center rounded-full transition-all duration-200 ${
-              cameraOn ? "bg-white/8 text-white/70 hover:bg-white/15" : "bg-[#EF4444]/20 text-[#EF4444] ring-1 ring-[#EF4444]/30"
-            }`}
-          >
-            <IconCamera off={!cameraOn} />
-          </button>
-
-          {/* Primary action: Next Q or Finish */}
-          {phase === "answering" && (
             <button
-              type="button"
-              onClick={() => void commitAnswer()}
-              disabled={!canAdvance || isSaving}
-              title={
-                !canAdvance
-                  ? `Keep answering — at least ${MIN_ANSWER_SEC}s required`
-                  : isLastQ
-                  ? "Finish interview"
-                  : "Save answer & go to next question"
-              }
-              className={`relative flex h-12 items-center gap-2.5 rounded-full px-6 text-[13px] font-bold uppercase tracking-wide transition-all duration-300 cursor-pointer ${
-                canAdvance && !isSaving
-                  ? isLastQ
-                    ? "bg-[#22C55E] text-white shadow-lg shadow-[#22C55E]/20 hover:bg-[#16A34A]"
-                    : "bg-white text-[#0F172A] shadow-lg shadow-white/10 hover:bg-white/90"
-                  : "bg-white/5 text-white/20 cursor-not-allowed"
-              }`}
+              onClick={() => {
+                if (confirm("Are you sure you want to end this simulation? Progress will be lost.")) {
+                  router.push("/simulation/setup");
+                }
+              }}
+              className="rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
             >
-              {isSaving ? (
-                <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              ) : isLastQ ? (
-                <>
-                  <IconCheck />
-                  Finish Interview
-                </>
-              ) : (
-                <>
-                  Next Question
-                  <IconArrowRight />
-                </>
-              )}
-              {/* Unlock progress ring when not yet eligible */}
-              {!canAdvance && phase === "answering" && elapsed < MIN_ANSWER_SEC && (
-                <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] text-white/25">
-                  {MIN_ANSWER_SEC - elapsed}s until unlocked
-                </span>
-              )}
+              Exit Simulation
             </button>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Countdown animation keyframes ── */}
+        {/* ── WEBCAM AND ASIDE CHECKLIST PANEL ── */}
+        <div className="relative mt-6 flex flex-1 items-stretch gap-6 min-h-0 overflow-hidden">
+          
+          {/* Main Recording Video Box */}
+          <div className="relative flex flex-1 flex-col overflow-hidden rounded-3xl bg-slate-900 shadow-xl shadow-slate-900/10 min-h-[350px]">
+
+            {/* Overlay Time Limit / Recording Pill */}
+            <div className="absolute right-4 top-4 z-20 flex items-center gap-2 rounded-full bg-black/45 px-3 py-1.5 text-white backdrop-blur-md">
+              <span className={`size-2 rounded-full ${phase === "answering" ? "bg-red-500 animate-pulse" : "bg-yellow-500"}`} />
+              <span className="font-mono text-xs font-semibold tracking-wider">
+                {phase === "answering" ? formatTime(elapsed) : "00:00"}
+              </span>
+            </div>
+
+            {/* Webcam video track */}
+            <div ref={containerRef} className="relative flex-1 size-full flex items-center justify-center overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedMetadata={handleLoadedMetadata}
+                className={`size-full object-cover ${!cameraOn ? "hidden" : ""}`}
+              />
+
+              {!cameraOn && (
+                <div className="flex size-full flex-col items-center justify-center text-white/20 bg-slate-800/80">
+                  <IconUser />
+                  <p className="mt-2 text-xs text-white/45">Camera turned off</p>
+                </div>
+              )}
+
+              {/* Dynamic canvas bounding-box paint for face recognition */}
+              {cameraOn && (
+                <canvas
+                  ref={overlayRef}
+                  className="pointer-events-none absolute inset-0 z-10"
+                  style={{ width: "100%", height: "100%" }}
+                />
+              )}
+
+              {/* Countdown loading view */}
+              {phase === "countdown" && !mediaError && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[3px] text-white/40">
+                    Q{currentQ} of {questions.length} · Starting in
+                  </p>
+                  <div
+                    key={countdown}
+                    className="text-[96px] font-black leading-none tabular-nums text-white"
+                    style={{ animation: "countdownPop 0.9s ease-out both" }}
+                  >
+                    {countdown === 0 ? "GO" : countdown}
+                  </div>
+                  <p className="mt-4 max-w-[400px] text-center text-sm leading-relaxed text-white/60 px-4">
+                    {questionText}
+                  </p>
+                </div>
+              )}
+
+              {/* Between questions saved view */}
+              {phase === "between" && !mediaError && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-slate-950/95 backdrop-blur-md">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  <div className="text-center px-6">
+                    <p className="text-xs font-semibold uppercase tracking-[3px] text-emerald-500">Answer Saved</p>
+                    <p className="mt-1 text-lg font-bold text-white">
+                      Ready for Question {currentQ}?
+                    </p>
+                    <p className="mt-2 max-w-[400px] text-xs leading-relaxed text-white/40">
+                      {questions[currentQ - 1]}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setPhase("countdown"); setCountdown(PRE_ROLL_SEC); }}
+                    className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
+                  >
+                    Start Question {currentQ} <IconArrowRight />
+                  </button>
+                </div>
+              )}
+
+              {/* Media Error block */}
+              {(mediaError || saveError) && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80 p-6 text-center">
+                  <div className="max-w-xs">
+                    <p className="text-[12px] font-medium uppercase tracking-[1px] text-[#EF4444]">
+                      {mediaError ?? saveError}
+                    </p>
+                    {saveError && (
+                      <button
+                        type="button"
+                        onClick={() => { setSaveError(null); setPhase("countdown"); setCountdown(PRE_ROLL_SEC); }}
+                        className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-white/70 hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        Try Again
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Mic volume sound levels (Vertical slider visual overlay) */}
+            {phase === "answering" && micOn && (
+              <div className="absolute bottom-4 left-4 z-20 flex h-32 w-10 flex-col items-center justify-between rounded-2xl bg-black/40 p-2 text-white backdrop-blur-md">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+                </svg>
+                <div className="w-1 flex-1 mx-2 my-2 rounded-full bg-white/20 overflow-hidden flex flex-col justify-end">
+                  <div className="w-full bg-emerald-500 transition-all duration-75" style={{ height: `${avgLevel}%` }}></div>
+                </div>
+                <span className="text-[8px] font-bold text-white/40">VOL</span>
+              </div>
+            )}
+
+            {/* Bottom Controls Panel inside video frame overlay */}
+            <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 p-2 backdrop-blur-md">
+              <button className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition-all hover:scale-105">
+                <AppIcon name="dashboard" className="size-4" />
+              </button>
+
+              <button
+                onClick={toggleMic}
+                className={`flex size-11 items-center justify-center rounded-full transition-all hover:scale-105 ${
+                  micOn ? "bg-white/10 text-white/80 hover:bg-white/20" : "bg-rose-500/20 text-rose-500 ring-1 ring-rose-500/30"
+                }`}
+              >
+                <IconMic muted={!micOn} />
+              </button>
+
+              {/* End/Proceed button (Red rounded hang-up button) */}
+              <button
+                onClick={() => void commitAnswer()}
+                disabled={!canAdvance || isSaving}
+                className={`flex h-11 items-center justify-center rounded-2xl px-6 font-semibold transition-all hover:scale-[1.02] ${
+                  canAdvance && !isSaving
+                    ? "bg-rose-500 text-white hover:bg-rose-600 shadow-lg shadow-rose-500/20 cursor-pointer"
+                    : "bg-white/5 text-white/20 cursor-not-allowed"
+                }`}
+              >
+                {isSaving ? (
+                  <span className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="rotate-[135deg]">
+                      <path d="M21 16.5a1.5 1.5 0 0 1-1-1.5v-2.5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2V15a1.5 1.5 0 0 1-1 1.5H2v1.5a1.5 1.5 0 0 0 1.5 1.5h17a1.5 1.5 0 0 0 1.5-1.5v-1.5h-1z" />
+                    </svg>
+                    <span className="text-xs uppercase tracking-wider font-bold">
+                      {isLastQ ? "Finish" : "Next Q"}
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              <button
+                onClick={toggleCamera}
+                className={`flex size-11 items-center justify-center rounded-full transition-all hover:scale-105 ${
+                  cameraOn ? "bg-white/10 text-white/80 hover:bg-white/20" : "bg-rose-500/20 text-rose-500 ring-1 ring-rose-500/30"
+                }`}
+              >
+                <IconCamera off={!cameraOn} />
+              </button>
+
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition-all hover:scale-105"
+              >
+                <AppIcon name="settings" className="size-4" />
+              </button>
+            </div>
+
+            {/* ── Google Meet Style Settings Popover ── */}
+            {showSettings && (
+              <div className="absolute bottom-20 left-1/2 z-30 w-[320px] -translate-x-1/2 rounded-2xl border border-white/5 bg-[#141414]/98 p-4 text-white shadow-2xl backdrop-blur-md">
+                <div className="mb-3 flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Device Settings</span>
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="rounded-full p-1 text-slate-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {/* Microphone Section */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Microphone</span>
+                    <div className="flex flex-col max-h-[110px] overflow-y-auto gap-0.5 device-scroll">
+                      {audioDevices.map((d) => {
+                        const isSelected = d.deviceId === selectedAudioId;
+                        return (
+                          <button
+                            key={d.deviceId}
+                            type="button"
+                            onClick={() => void changeDevices(d.deviceId, selectedVideoId)}
+                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-white/10 text-white font-medium shadow-sm"
+                                : "text-slate-300 hover:bg-white/5"
+                            }`}
+                          >
+                            <span className="flex size-3.5 shrink-0 items-center justify-center">
+                              {isSelected && (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </span>
+                            <span className="truncate">{d.label || `Microphone ${d.deviceId.slice(0, 5)}`}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Mic volume progress bar */}
+                    <div className="mt-1.5 flex items-center gap-2 px-1 py-1 border-t border-white/5">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400">
+                        <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      </svg>
+                      <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-75" style={{ width: `${avgLevel}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Camera Section */}
+                  <div className="flex flex-col gap-1.5 border-t border-white/5 pt-3">
+                    <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Camera</span>
+                    <div className="flex flex-col max-h-[110px] overflow-y-auto gap-0.5 device-scroll">
+                      {videoDevices.map((d) => {
+                        const isSelected = d.deviceId === selectedVideoId;
+                        return (
+                          <button
+                            key={d.deviceId}
+                            type="button"
+                            onClick={() => void changeDevices(selectedAudioId, d.deviceId)}
+                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-white/10 text-white font-medium shadow-sm"
+                                : "text-slate-300 hover:bg-white/5"
+                            }`}
+                          >
+                            <span className="flex size-3.5 shrink-0 items-center justify-center">
+                              {isSelected && (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" className="text-white">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </span>
+                            <span className="truncate">{d.label || `Camera ${d.deviceId.slice(0, 5)}`}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Checklist of Questions Sidebar Panel */}
+          <aside className="w-[180px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Checklist
+            </div>
+
+            {questions.map((q, idx) => {
+              const isCurrent = idx + 1 === currentQ;
+              const isDone = idx + 1 < currentQ;
+              const isFuture = idx + 1 > currentQ;
+              return (
+                <div
+                  key={idx}
+                  className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 transition-all ${
+                    isCurrent
+                      ? "border-indigo-200 bg-indigo-50/50 shadow-sm"
+                      : isDone
+                      ? "border-slate-100 bg-slate-50 opacity-60"
+                      : "border-slate-100 bg-white"
+                  } ${isFuture ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-bold uppercase ${isCurrent ? 'text-indigo-600' : 'text-slate-400'}`}>
+                      Question {idx + 1}
+                    </span>
+                    {isDone && (
+                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                        <IconCheck />
+                      </span>
+                    )}
+                    {isFuture && (
+                      <span className="text-[9px] font-medium text-slate-400">
+                        Locked
+                      </span>
+                    )}
+                  </div>
+                  <p className="line-clamp-2 text-[11px] text-slate-500 leading-normal">
+                    {isFuture ? "Question is locked" : q}
+                  </p>
+                </div>
+              );
+            })}
+          </aside>
+        </div>
+
+        {/* ── FOOTER: Waveform & Subtitle transcript area ── */}
+        <footer className="mt-6 flex items-center gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shrink-0">
+          <div className="flex items-end gap-1 h-8 shrink-0">
+            {audioLevels.map((h, i) => (
+              <span
+                key={i}
+                className={`w-[3px] rounded-full transition-all duration-75 ${
+                  phase === 'answering' && micOn ? 'bg-emerald-500' : 'bg-slate-200'
+                }`}
+                style={{
+                  height: `${h}px`
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="flex-1 text-xs text-slate-500 leading-relaxed font-light italic">
+            {phase === "answering" && micOn ? (
+              "Listening... Speak clearly. Your voice is being processed locally by Lumen AI."
+            ) : phase === "countdown" ? (
+              "Please wait... prepare your answer, camera recording starts in a few seconds."
+            ) : (
+              "Microphone is standby. Start recording to enable real-time transcript capture."
+            )}
+          </div>
+        </footer>
+      </main>
+
+      {/* ── Styles ── */}
       <style>{`
         @keyframes countdownPop {
           0%   { opacity: 0; transform: scale(1.6); }
@@ -721,7 +1076,21 @@ export default function RecordingPage() {
           85%  { opacity: 1; transform: scale(1.0); }
           100% { opacity: 0; transform: scale(0.7); }
         }
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap');
+        /* Custom scrollbar for device settings list */
+        .device-scroll::-webkit-scrollbar {
+          width: 5px;
+        }
+        .device-scroll::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 999px;
+        }
+        .device-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 999px;
+        }
+        .device-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.25);
+        }
       `}</style>
     </div>
   );
