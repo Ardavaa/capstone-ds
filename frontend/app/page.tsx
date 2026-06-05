@@ -10,6 +10,20 @@ import { HorizontalMarquee } from "@/components/ui/marquee";
 
 // ─── Icon components (SVG, no emoji) ──────────────────────────────────────
 
+function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <rect x="2" y="9" width="1.5" height="6" rx="0.5" />
+      <rect x="5" y="6" width="1.5" height="12" rx="0.5" />
+      <rect x="8" y="3" width="1.5" height="18" rx="0.5" />
+      <rect x="11" y="5" width="1.5" height="14" rx="0.5" />
+      <rect x="14" y="2" width="1.5" height="20" rx="0.5" />
+      <rect x="17" y="7" width="1.5" height="10" rx="0.5" />
+      <rect x="20" y="10" width="1.5" height="4" rx="0.5" />
+    </svg>
+  );
+}
+
 function IconPlay() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -187,16 +201,7 @@ export default function LandingPage() {
           {/* Logo */}
           <div className="flex items-center gap-2.5 pl-2">
             <div className="flex items-center justify-center text-white/90">
-              {/* Soundwave-like logo to match the vibe */}
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="2" y="9" width="1.5" height="6" rx="0.5" />
-                <rect x="5" y="6" width="1.5" height="12" rx="0.5" />
-                <rect x="8" y="3" width="1.5" height="18" rx="0.5" />
-                <rect x="11" y="5" width="1.5" height="14" rx="0.5" />
-                <rect x="14" y="2" width="1.5" height="20" rx="0.5" />
-                <rect x="17" y="7" width="1.5" height="10" rx="0.5" />
-                <rect x="20" y="10" width="1.5" height="4" rx="0.5" />
-              </svg>
+              <IconLogo size={22} />
             </div>
             <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
           </div>
@@ -580,10 +585,10 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-600">
-                  <span className="text-[13px] font-black text-white">L</span>
+                <div className="flex items-center justify-center text-indigo-600">
+                  <IconLogo size={24} />
                 </div>
-                <span className="text-[15px] font-bold text-slate-900">Lumen</span>
+                <span className="text-[17px] font-bold text-slate-900">Lumen</span>
               </div>
               <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
                 AI-powered interview performance analysis. Multimodal. Quantified. Actionable.
@@ -640,9 +645,14 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Font import */}
+      {/* Font & Styles consistency */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        h1, h2, h3, h4, h5, h6 {
+          font-family: 'Manrope', 'Space Grotesk', 'Google Sans', sans-serif !important;
+        }
+        body, div, p, span, a, button, li {
+          font-family: 'DM Sans', system-ui, sans-serif;
+        }
       `}</style>
     </div>
   );
