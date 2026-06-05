@@ -391,14 +391,32 @@ export function loadSelectedSession(sessionId?: string | null): SessionRecord | 
   return history[0] ?? null;
 }
 
+export function resolveRecordingMimeType(
+  blobType?: string,
+  metaMimeType?: string,
+): string {
+  return metaMimeType ?? blobType ?? "video/webm";
+}
+
+export function recordingUploadFilename(mimeType: string): string {
+  const base = mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (base.includes("webm")) return "interview-recording.webm";
+  if (base.includes("mp4") || base === "video/quicktime") return "interview-recording.mp4";
+  if (base.includes("wav")) return "interview-recording.wav";
+  if (base.includes("mpeg") || base.includes("mp3")) return "interview-recording.mp3";
+  if (base.includes("ogg")) return "interview-recording.ogg";
+  return "interview-recording.webm";
+}
+
 export async function analyzeRecording(
   file: Blob,
   questionTopic: string,
+  options?: { mimeType?: string },
 ): Promise<AnalyzeResponse> {
+  const mimeType = resolveRecordingMimeType(file.type, options?.mimeType);
+  const uploadBlob = file.type ? file : new Blob([file], { type: mimeType });
   const form = new FormData();
-  const filename =
-    file.type.includes("webm") ? "interview-recording.webm" : "interview-recording.mp4";
-  form.append("file", file, filename);
+  form.append("file", uploadBlob, recordingUploadFilename(mimeType));
   form.append("question_topic", questionTopic);
 
   const response = await fetch(`${API_BASE}/api/analyze`, {

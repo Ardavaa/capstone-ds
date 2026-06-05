@@ -80,6 +80,7 @@ export default function AnalyzingPage() {
         const result = await analyzeRecording(
           recording.blob,
           getQuestionTopic(),
+          { mimeType: recording.meta?.mimeType },
         );
         saveAnalysisResult(result);
         saveSessionToHistory(result, getQuestionTopic());

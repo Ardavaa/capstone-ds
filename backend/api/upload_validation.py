@@ -61,7 +61,13 @@ def validate_media_upload(
         raise ValueError(f"Unsupported media file type. Allowed extensions: {allowed}.")
 
     normalized_content_type = (content_type or "").split(";", maxsplit=1)[0].strip().lower()
-    if normalized_content_type and normalized_content_type not in ALLOWED_UPLOAD_MIME_TYPES:
+    # Browsers often send application/octet-stream when the Blob has no MIME type.
+    trusted_generic_types = frozenset({"application/octet-stream"})
+    if (
+        normalized_content_type
+        and normalized_content_type not in ALLOWED_UPLOAD_MIME_TYPES
+        and normalized_content_type not in trusted_generic_types
+    ):
         raise ValueError("Unsupported media MIME type.")
 
     return UploadValidationResult(suffix=suffix, size_bytes=size_bytes)

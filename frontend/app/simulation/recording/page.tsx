@@ -78,6 +78,26 @@ function IconUser() {
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 
+const RECORDER_MIME_CANDIDATES = [
+  "video/webm;codecs=vp8,opus",
+  "video/webm;codecs=vp9,opus",
+  "video/webm",
+  "video/mp4",
+] as const;
+
+const MIN_RECORDING_SEC = 1;
+const MAX_RECORDING_SEC = 3 * 60;
+const COUNTDOWN_WARN_SEC = 30;
+
+function pickRecorderMimeType(): string {
+  for (const mime of RECORDER_MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(mime)) {
+      return mime;
+    }
+  }
+  return "";
+}
+
 function subscribeToStorage(onStoreChange: () => void): () => void {
   window.addEventListener("storage", onStoreChange);
   return () => window.removeEventListener("storage", onStoreChange);
@@ -242,11 +262,15 @@ export default function RecordingPage() {
           videoRef.current.srcObject = stream;
         }
 
-        const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-          ? "video/webm;codecs=vp9,opus"
-          : MediaRecorder.isTypeSupported("video/webm")
-            ? "video/webm"
-            : "";
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          setMediaError(
+            "No microphone track detected. Allow mic access and reload the page.",
+          );
+          return;
+        }
+
+        const mimeType = pickRecorderMimeType();
 
         const recorder = mimeType
           ? new MediaRecorder(stream, { mimeType })
@@ -274,12 +298,30 @@ export default function RecordingPage() {
     };
   }, []);
 
-  // Recording timer
+  const remainingSec = Math.max(0, MAX_RECORDING_SEC - elapsed);
+  const countdownWarn = remainingSec > 0 && remainingSec <= COUNTDOWN_WARN_SEC;
+
+  // Recording timer (elapsed caps at max; countdown reaches 0 at limit)
   useEffect(() => {
-    if (!isRecording || paused) return;
-    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    if (!isRecording || paused || isSaving) return;
+    const id = setInterval(
+      () =>
+        setElapsed((s) => {
+          if (s >= MAX_RECORDING_SEC) return s;
+          return s + 1;
+        }),
+      1000,
+    );
     return () => clearInterval(id);
-  }, [isRecording, paused]);
+  }, [isRecording, paused, isSaving]);
+
+  // Auto-finish and navigate to analyzing when the 3-minute limit is reached
+  useEffect(() => {
+    if (!isRecording || paused || isSaving) return;
+    if (elapsed < MAX_RECORDING_SEC) return;
+    handleStop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to hitting the limit
+  }, [elapsed, isRecording, paused, isSaving]);
 
   function formatTime(s: number) {
     const hh = String(Math.floor(s / 3600)).padStart(2, "0");
@@ -303,11 +345,20 @@ export default function RecordingPage() {
   }
 
   function handleStop() {
+    if (isSaving) return;
+
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === "inactive") {
       setSaveError("No active recording found. Please reload and try again.");
       return;
     }
+
+    if (elapsed < MIN_RECORDING_SEC) {
+      setSaveError(`Record at least ${MIN_RECORDING_SEC} seconds before finishing.`);
+      return;
+    }
+
+    const durationSec = Math.min(elapsed, MAX_RECORDING_SEC);
 
     setIsSaving(true);
     setSaveError(null);
@@ -323,7 +374,7 @@ export default function RecordingPage() {
 
         await saveRecordingToSession(blob, {
           mimeType,
-          durationSec: elapsed,
+          durationSec,
         });
 
         streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -338,6 +389,9 @@ export default function RecordingPage() {
     };
 
     if (recorder.state === "recording" || recorder.state === "paused") {
+      if (typeof recorder.requestData === "function") {
+        recorder.requestData();
+      }
       recorder.stop();
     }
   }
@@ -368,15 +422,29 @@ export default function RecordingPage() {
     <div className="flex h-full flex-col bg-[#0f1117]">
       {/* ── Top bar ── */}
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 px-6">
-        {/* REC + timer */}
-        <div className="flex items-center gap-3">
+        {/* REC + countdown */}
+        <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-[1.5px] text-[#3a8377]">
             <span className={`size-2 rounded-full ${paused ? "bg-[#c9a227]" : "animate-pulse bg-[#c75240]"}`} />
             {paused ? "[ PAUSED ]" : "[ REC ]"}
           </span>
-          <span className="font-mono text-[13px] tracking-[1px] text-[#faf7f2]">
-            {formatTime(elapsed)}
-          </span>
+          <div className="flex items-baseline gap-2">
+            <div className="flex flex-col">
+              <span className="text-[9px] uppercase tracking-[1.5px] text-[#bfbfbf]">
+                Time left
+              </span>
+              <span
+                className={`font-mono text-[15px] font-semibold tracking-[1px] tabular-nums ${
+                  countdownWarn ? "text-[#c75240]" : "text-[#faf7f2]"
+                }`}
+              >
+                {formatTime(remainingSec)}
+              </span>
+            </div>
+            <span className="font-mono text-[11px] tracking-[1px] text-[#bfbfbf]/80">
+              / {formatTime(MAX_RECORDING_SEC)}
+            </span>
+          </div>
         </div>
 
         {/* Title */}
@@ -409,6 +477,17 @@ export default function RecordingPage() {
               <span className="flex items-center gap-1 rounded bg-black/50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.5px] text-[#faf7f2] backdrop-blur">
                 🎤 {micOn ? "ON" : "OFF"}
               </span>
+              {isRecording && (
+                <span
+                  className={`rounded px-2 py-1 font-mono text-[10px] font-semibold tabular-nums tracking-[0.5px] backdrop-blur ${
+                    countdownWarn
+                      ? "bg-[#c75240]/80 text-white"
+                      : "bg-black/50 text-[#faf7f2]"
+                  }`}
+                >
+                  {formatTime(remainingSec)}
+                </span>
+              )}
             </div>
 
             {/* Video element */}

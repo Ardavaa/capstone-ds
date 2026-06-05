@@ -31,11 +31,22 @@ class UploadValidationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported media file type"):
             validate_media_upload("notes.txt", "text/plain", b"hello")
 
+    def test_validate_media_upload_accepts_octet_stream_with_known_extension(self) -> None:
+        """IndexedDB blobs without a MIME type still pass when the extension is valid."""
+
+        result = validate_media_upload(
+            "interview-recording.webm",
+            "application/octet-stream",
+            b"media",
+        )
+
+        self.assertEqual(result.suffix, ".webm")
+
     def test_validate_media_upload_rejects_unsupported_mime(self) -> None:
         """Supported extension with an unsupported MIME type is rejected."""
 
         with self.assertRaisesRegex(ValueError, "Unsupported media MIME type"):
-            validate_media_upload("answer.mp4", "application/octet-stream", b"media")
+            validate_media_upload("answer.mp4", "text/plain", b"media")
 
     def test_validate_media_upload_rejects_oversized_file(self) -> None:
         """Oversized uploads are rejected using the configured byte limit."""
