@@ -6,6 +6,7 @@ export type IconName =
   | "arrow-right"
   | "arrow-up"
   | "briefcase"
+  | "camera"
   | "chart"
   | "clock"
   | "code"
@@ -81,6 +82,13 @@ function renderIconPath(name: IconName): ReactNode {
           <rect x="3" y="7" width="18" height="13" rx="2" />
           <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           <path d="M3 13h18" />
+        </>
+      );
+    case "camera":
+      return (
+        <>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
         </>
       );
     case "chart":
