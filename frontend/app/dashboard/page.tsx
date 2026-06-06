@@ -89,7 +89,7 @@ function Sparkline({ data, color, className = "", isNegative = false }: { data: 
   }
 
   return (
-    <div className={`relative w-full h-12 overflow-hidden ${className}`}>
+    <div className={`relative w-full h-12 overflow-hidden pointer-events-none ${className}`}>
       {/* Subtle baseline reference indicator */}
       <div className="absolute inset-x-0 bottom-[4px] border-b border-slate-100 pointer-events-none" />
       
@@ -105,6 +105,7 @@ function Sparkline({ data, color, className = "", isNegative = false }: { data: 
             strokeWidth={1.8}
             dot={false}
             activeDot={false}
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -329,73 +330,58 @@ export default function Dashboard() {
             </div>
           </BorderGlow>
 
-          {/* ── METRICS GRID (Rich Data Storytelling) ── */}
+          {/* ── METRICS GRID (Minimal SaaS Card Design) ── */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             
             {/* Card 1: Performance Avg */}
-            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-slate-200 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 hover:ring-slate-300">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex size-12 items-center justify-center rounded-[18px] bg-slate-50 ring-1 ring-slate-100 text-slate-600 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:ring-indigo-100">
-                  <AppIcon name="target" className="size-5" strokeWidth={2.5} />
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+              <div className="flex flex-col gap-1 mb-2">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Global Score</div>
+                <div className="flex items-baseline gap-1.5">
+                  <div className="text-3xl font-bold tracking-tight text-slate-900">{stats.avgScore}</div>
+                  <div className="text-sm font-semibold text-slate-400">/100</div>
+                  {deltas.score !== 0 && (
+                    <span className={`text-xs font-semibold ml-2 ${deltas.score > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {deltas.score > 0 ? '+' : ''}{deltas.score}
+                    </span>
+                  )}
                 </div>
-                {deltas.score !== 0 && (
-                  <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${deltas.score > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    {deltas.score > 0 ? '↑' : '↓'} {Math.abs(deltas.score)} pts
-                  </div>
-                )}
               </div>
-              <div className="relative z-10 mb-6">
-                <div className="flex items-baseline gap-1">
-                  <div className="text-5xl font-black tracking-tighter text-slate-900">{stats.avgScore}</div>
-                  <div className="text-lg font-bold text-slate-400">/100</div>
-                </div>
-                <div className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">Global Score</div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 px-5 pb-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                 <Sparkline data={trends.scores} color="#6366F1" />
+              <div className="w-full h-12 mt-3">
+                <Sparkline data={trends.scores} color="#383777" />
               </div>
             </div>
 
             {/* Card 2: Filler Reduction */}
-            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-slate-200 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 hover:ring-slate-300">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex size-12 items-center justify-center rounded-[18px] bg-slate-50 ring-1 ring-slate-100 text-slate-600 transition-colors group-hover:bg-amber-50 group-hover:text-amber-600 group-hover:ring-amber-100">
-                  <AppIcon name="activity" className="size-5" strokeWidth={2.5} />
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+              <div className="flex flex-col gap-1 mb-2">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Filler Words</div>
+                <div className="flex items-baseline gap-1.5">
+                  <div className="text-3xl font-bold tracking-tight text-slate-900">{stats.avgFiller}</div>
+                  <div className="text-sm font-semibold text-slate-400">%</div>
+                  {deltas.filler !== 0 && (
+                    <span className={`text-xs font-semibold ml-2 ${deltas.filler < 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {deltas.filler > 0 ? '+' : ''}{deltas.filler}%
+                    </span>
+                  )}
                 </div>
-                {deltas.filler !== 0 && (
-                  <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${deltas.filler < 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    {deltas.filler < 0 ? '↓' : '↑'} {Math.abs(deltas.filler)}%
-                  </div>
-                )}
               </div>
-              <div className="relative z-10 mb-6">
-                <div className="flex items-baseline gap-1">
-                  <div className="text-5xl font-black tracking-tighter text-slate-900">{stats.avgFiller}</div>
-                  <div className="text-lg font-bold text-slate-400">%</div>
-                </div>
-                <div className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">Filler Words</div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 px-5 pb-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                 <Sparkline data={trends.fillers} color="#F59E0B" isNegative={true} />
+              <div className="w-full h-12 mt-3">
+                <Sparkline data={trends.fillers} color="#383777" isNegative={true} />
               </div>
             </div>
 
             {/* Card 3: Confidence / NV */}
-            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[28px] bg-white p-6 shadow-sm ring-1 ring-slate-200 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 hover:ring-slate-300">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex size-12 items-center justify-center rounded-[18px] bg-slate-50 ring-1 ring-slate-100 text-slate-600 transition-colors group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:ring-emerald-100">
-                  <AppIcon name="eye" className="size-5" strokeWidth={2.5} />
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+              <div className="flex flex-col gap-1 mb-2">
+                <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Visual Confidence</div>
+                <div className="flex items-baseline gap-1.5">
+                  <div className="text-3xl font-bold tracking-tight text-slate-900">{stats.avgNonVerbal}</div>
+                  <div className="text-sm font-semibold text-slate-400">/100</div>
                 </div>
               </div>
-              <div className="relative z-10 mb-6">
-                <div className="flex items-baseline gap-1">
-                  <div className="text-5xl font-black tracking-tighter text-slate-900">{stats.avgNonVerbal}</div>
-                  <div className="text-lg font-bold text-slate-400">/100</div>
-                </div>
-                <div className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">Visual Confidence</div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 px-5 pb-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                 <Sparkline data={trends.nvs} color="#10B981" />
+              <div className="w-full h-12 mt-3">
+                <Sparkline data={trends.nvs} color="#383777" />
               </div>
             </div>
 
@@ -405,12 +391,12 @@ export default function Dashboard() {
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between px-2">
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Training History</h2>
-                <p className="text-sm font-medium text-slate-500 mt-1">Review past simulations to observe your evolving delivery style.</p>
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Training History</h2>
+                <p className="text-sm font-light text-slate-500 mt-1">Review past simulations to observe your evolving delivery style.</p>
               </div>
               <Link
                 href="/history"
-                className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
               >
                 <span>View Timeline</span>
                 <AppIcon name="arrow-right" className="size-3.5" strokeWidth={3} />
@@ -432,57 +418,91 @@ export default function Dashboard() {
                 {recent.map((session, i) => {
                   const r = session.result;
                   const duration = formatDuration(r.delivery_metrics.duration_sec);
-                  const style = scoreStyle(r.final_score);
+                  
+                  const score = r.final_score;
+                  let st = {
+                    line: "#10b981",
+                    border: "border-emerald-500",
+                    textScore: "text-emerald-500",
+                    textPerf: "text-emerald-500",
+                    textTrend: "text-emerald-500",
+                    dash: "bg-emerald-500",
+                    label: "Good"
+                  };
+                  if (score < 50) {
+                    st = { line: "#ef4444", border: "border-rose-500", textScore: "text-rose-500", textPerf: "text-rose-500", textTrend: "text-rose-500", dash: "bg-rose-500", label: "Low" };
+                  } else if (score < 75) {
+                    st = { line: "#f59e0b", border: "border-amber-500", textScore: "text-amber-500", textPerf: "text-amber-500", textTrend: "text-amber-500", dash: "bg-amber-500", label: "Medium" };
+                  }
 
                   return (
                     <Link
                       key={session.id}
                       href={`/report-cards?session=${encodeURIComponent(session.id)}`}
                       onClick={() => selectSession(session)}
-                      className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-6 rounded-[24px] bg-white p-5 sm:p-6 shadow-sm ring-1 ring-slate-200 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/50 hover:ring-slate-300"
+                      className="group flex flex-col md:flex-row items-start md:items-center justify-between rounded-2xl bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-slate-200 transition-all duration-300 gap-4 md:gap-2"
                     >
-                      {/* Left: Score & Details */}
-                      <div className="flex items-center gap-6">
-                        <div className={`flex size-14 shrink-0 items-center justify-center rounded-[16px] ${style.bg} ${style.text} ring-1 ${style.ring}`}>
-                          <span className="text-xl font-black tracking-tighter">{r.final_score}</span>
+                      {/* 1. Icon & Title */}
+                      <div className="flex items-start gap-4 w-full md:w-[35%] shrink-0">
+                        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 border border-slate-200 text-slate-400 group-hover:border-[#311f62]/30 group-hover:text-[#311f62] transition-colors">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-lg font-bold text-slate-900 tracking-tight transition-colors group-hover:text-indigo-600">
-                              {session.questionTopic.length > 50 ? `${session.questionTopic.slice(0, 50)}...` : session.questionTopic}
-                            </h4>
-                          </div>
-                          
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                              <AppIcon name="clock" className="size-4 text-slate-400" />
-                              {duration}
-                            </span>
-                            <span className="size-1 rounded-full bg-slate-300" />
-                            <span className="flex items-center gap-1.5">
-                              <AppIcon name="dashboard" className="size-4 text-slate-400" />
-                              <span className="capitalize">{session.categoryLabel ?? "Simulation"}</span>
-                            </span>
-                            <span className="size-1 rounded-full bg-slate-300" />
-                            <span>{session.date}</span>
+                        <div className="flex flex-col items-start gap-2">
+                          <h4 className="text-[15px] font-medium text-slate-900 leading-snug group-hover:text-[#311f62] transition-colors">
+                            {session.questionTopic.length > 50 ? `${session.questionTopic.slice(0, 50)}...` : session.questionTopic}
+                          </h4>
+                          <div className="rounded-full bg-slate-50 border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500 capitalize">
+                            {session.categoryLabel ?? "Simulation"}
                           </div>
                         </div>
                       </div>
                       
-                      {/* Right: Metrics Mini-preview & Action */}
-                      <div className="flex items-center gap-6 sm:justify-end">
-                        <div className="hidden md:flex items-center gap-5 pr-6 border-r border-slate-100">
-                          <div className="flex flex-col items-end">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Fillers</span>
-                            <span className="text-sm font-bold text-slate-700">{r.delivery_metrics.filler_rate}%</span>
+                      {/* 2. Date */}
+                      <div className="hidden md:flex flex-col items-center justify-center w-[20%]">
+                        <div className="text-[12px] font-regular text-slate-500 border-b border-dashed border-slate-300 pb-[2px]">
+                          {session.date}
+                        </div>
+                      </div>
+
+                      {/* 3. Clock & Duration */}
+                      <div className="flex flex-col items-center w-full md:w-[15%]">
+                        <div className="mb-2 text-slate-400 group-hover:text-[#311f62] transition-colors">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] font-regular text-slate-400">
+                          Duration <span className={`flex items-center gap-0.5 ${st.textTrend}`}>{duration}</span>
+                        </div>
+                      </div>
+
+                      {/* 4. Score Progress Ring */}
+                      <div className="flex flex-col w-full md:w-[20%]">
+                        <div className="flex items-center gap-3 mb-1.5">
+                          <div className="relative size-11 shrink-0">
+                            <svg className="-rotate-90 w-full h-full" viewBox="0 0 40 40">
+                              <circle cx="20" cy="20" r="16" fill="none" className="stroke-slate-100" strokeWidth="3.5" />
+                              <circle cx="20" cy="20" r="16" fill="none" className={st.textScore} stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" style={{ strokeDasharray: 2 * Math.PI * 16, strokeDashoffset: (2 * Math.PI * 16) - (score / 100) * (2 * Math.PI * 16) }} />
+                            </svg>
+                            <div className={`absolute inset-0 flex items-center justify-center text-[13px] font-black ${st.textScore}`}>
+                              {score}
+                            </div>
                           </div>
-                          <div className="flex flex-col items-end">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pacing</span>
-                            <span className="text-sm font-bold text-slate-700">{r.delivery_metrics.wpm} wpm</span>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-extrabold text-slate-800 leading-none mb-1.5">Score</span>
+                            <span className="text-[11px] font-medium text-slate-400 leading-none">out of 100</span>
                           </div>
                         </div>
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all duration-300 group-hover:bg-indigo-600 group-hover:text-white group-hover:shadow-lg group-hover:shadow-indigo-500/30">
-                          <AppIcon name="arrow-right" className="size-4" strokeWidth={2.5} />
+                        <div className="text-[11px] font-semibold text-slate-400">
+                          Performance <span className={st.textPerf}>{st.label}</span>
+                        </div>
+                      </div>
+
+                      {/* 5. Right Arrow */}
+                      <div className="hidden md:flex items-center justify-end w-[10%] shrink-0 pr-2">
+                        <div className="text-slate-300 group-hover:text-[#311f62] transition-all duration-300 group-hover:translate-x-1">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                          </svg>
                         </div>
                       </div>
                     </Link>
