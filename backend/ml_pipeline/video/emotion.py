@@ -1,7 +1,9 @@
-"""Facial emotion analysis for interview video (YOLOv8-cls + YOLOv8n face detection)."""
+"""
+Analisis Emosi Wajah (Facial Emotion Analysis)
+Mendeteksi wajah kandidat menggunakan YOLOv8-face dan mengklasifikasikan emosi menggunakan YOLOv8-cls.
+"""
 
 from __future__ import annotations
-
 import logging
 import subprocess
 import tempfile
@@ -23,7 +25,7 @@ from core.config import (
 
 log = logging.getLogger(__name__)
 
-# Interview-friendly valence per emotion label (0–1)
+# Nilai valence emosi wajah (0-1) yang bersahabat untuk wawancara kerja
 _EMOTION_VALENCE: dict[str, float] = {
     "neutral": 1.0,
     "happy": 0.95,
@@ -34,12 +36,8 @@ _EMOTION_VALENCE: dict[str, float] = {
     "disgust": 0.20,
 }
 
-_NERVOUS_LABELS: frozenset[str] = frozenset({"sad", "angry", "fear", "disgust"})
-
+_NERVOUS_LABELS: frozenset[str] = frozenset({"sad", "fear", "angry", "disgust"})
 _DEFAULT_EMOTION = "neutral"
-
-
-# ─── Data classes ─────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
 class VideoEmotionResult:
@@ -51,11 +49,8 @@ class VideoEmotionResult:
     frames_analyzed: int
     frames_sampled: int
 
-
 @dataclass(frozen=True)
 class FrameDetectionResult:
-    """Single-frame facial emotion detection for the live camera overlay."""
-
     emotion: str
     confidence: float
     bbox_x: float | None
@@ -63,63 +58,25 @@ class FrameDetectionResult:
     bbox_w: float | None
     bbox_h: float | None
 
-
-# ─── Model loaders (cached) ───────────────────────────────────────────────────
-
 @cache
 def get_emotion_model() -> YOLO:
-    """Load and cache the YOLOv8 classification model for facial emotion."""
-
-    log.info("YOLOv8-cls: loading emotion model  path=%s", VIDEO_EMOTION_MODEL_PATH)
-    model = YOLO(str(VIDEO_EMOTION_MODEL_PATH))
-    log.info(
-        "YOLOv8-cls: ready  classes=%s",
-        list(model.names.values()) if hasattr(model, "names") else "unknown",
-    )
-    return model
-
+    """Memuat dan menyimpan cache model YOLOv8 untuk klasifikasi ekspresi wajah."""
+    log.info("YOLOv8-cls: memuat model dari %s", VIDEO_EMOTION_MODEL_PATH)
+    return YOLO(str(VIDEO_EMOTION_MODEL_PATH))
 
 @cache
 def get_face_detector() -> YOLO:
-    """Load and cache the YOLOv8n face detection model.
-
-    Replaces the legacy Haar cascade with a neural face detector that produces
-    stable, accurate bounding boxes regardless of lighting or head pose.
-
-    Returns:
-        A cached YOLO detection model (task=detect, class=FACE).
-
-    Raises:
-        FileNotFoundError: If the model file is missing.
-    """
-
-    log.info("YOLOv8n-face: loading face detector  path=%s", VIDEO_FACE_DETECTOR_MODEL_PATH)
+    """Memuat dan menyimpan cache model YOLOv8n-face untuk deteksi wajah."""
+    log.info("YOLOv8n-face: memuat model dari %s", VIDEO_FACE_DETECTOR_MODEL_PATH)
     if not VIDEO_FACE_DETECTOR_MODEL_PATH.exists():
         raise FileNotFoundError(
-            f"YOLOv8n face detection model not found at {VIDEO_FACE_DETECTOR_MODEL_PATH}. "
-            "Run the download script or copy yolov8n-face.pt into ml_pipeline/video/models/."
+            f"Model deteksi wajah tidak ditemukan di {VIDEO_FACE_DETECTOR_MODEL_PATH}. "
+            "Harap letakkan model yolov8n-face.pt ke folder ml_pipeline/video/models/."
         )
-    model = YOLO(str(VIDEO_FACE_DETECTOR_MODEL_PATH))
-    log.info("YOLOv8n-face: ready  task=%s", model.task)
-    return model
-
-
-# ─── Public API ───────────────────────────────────────────────────────────────
+    return YOLO(str(VIDEO_FACE_DETECTOR_MODEL_PATH))
 
 def detect_frame_emotion(image_bytes: bytes) -> FrameDetectionResult:
-    """Detect face emotion and bounding box from a single JPEG/PNG frame.
-
-    Pipeline:
-        1. YOLOv8n-face detects the largest face → bounding box (stable)
-        2. Face crop is passed to YOLOv8-cls → emotion label + confidence
-
-    Args:
-        image_bytes: Encoded image bytes (e.g. JPEG from browser canvas).
-
-    Returns:
-        Emotion label, confidence, and relative bounding box (0–1), or null bbox.
-    """
-
+    """Mendeteksi emosi dan posisi wajah pada satu frame gambar (overlay kamera langsung)."""
     arr = np.frombuffer(image_bytes, dtype=np.uint8)
     frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if frame is None:
@@ -128,10 +85,13 @@ def detect_frame_emotion(image_bytes: bytes) -> FrameDetectionResult:
     try:
         face_model = get_face_detector()
         emotion_model = get_emotion_model()
+        
+        # Cari wajah terbesar di gambar
         face_crop, bbox = _detect_largest_face_yolo(face_model, frame)
         if face_crop is None or bbox is None:
             return _null_result()
 
+        # Klasifikasikan emosi dari potongan gambar wajah tersebut
         label, confidence = _classify_emotion_with_confidence(emotion_model, face_crop)
         return FrameDetectionResult(
             emotion=label,
@@ -142,173 +102,107 @@ def detect_frame_emotion(image_bytes: bytes) -> FrameDetectionResult:
             bbox_h=bbox[3],
         )
     except Exception as exc:
-        log.debug("detect_frame_emotion: error — %s: %s", type(exc).__name__, exc)
+        log.debug("detect_frame_emotion error — %s", exc)
         return _null_result()
 
-
 def analyze_video_emotion(video_path: Path) -> VideoEmotionResult:
-    """Sample frames, detect faces with YOLO, classify emotions, aggregate metrics.
-
-    Args:
-        video_path: Path to the uploaded interview video.
-
-    Returns:
-        Aggregated facial emotion metrics and non-verbal score.
-    """
-
+    """Mengambil beberapa frame dari video, mendeteksi wajah, mengklasifikasi emosi, dan merangkum nilainya."""
     frames = _sample_frames(video_path, VIDEO_FRAME_SAMPLE_FPS)
     if not frames:
-        log.warning("VideoEmotion: no frames sampled  path=%s", video_path.name)
+        log.warning("VideoEmotion: tidak ada frame yang disampling untuk %s", video_path.name)
         return _default_result(0)
 
-    log.info("VideoEmotion: sampled %d frames from %s", len(frames), video_path.name)
     try:
         face_model = get_face_detector()
         emotion_model = get_emotion_model()
         labels: list[str] = []
+        
         for frame in frames:
             face_crop, _ = _detect_largest_face_yolo(face_model, frame)
-            if face_crop is None:
-                continue
-            label = _classify_emotion(emotion_model, face_crop)
-            labels.append(label)
+            if face_crop is not None:
+                labels.append(_classify_emotion(emotion_model, face_crop))
+                
     except Exception as exc:
-        log.error(
-            "VideoEmotion: inference failed — %s: %s",
-            type(exc).__name__,
-            exc,
-            exc_info=True,
-        )
+        log.error("VideoEmotion: inferensi gagal — %s", exc, exc_info=True)
         return _default_result(len(frames))
 
-    log.info(
-        "VideoEmotion: analyzed %d/%d frames  dominant=%s",
-        len(labels),
-        len(frames),
-        max(set(labels), key=labels.count) if labels else "none",
-    )
     if not labels:
         return _default_result(len(frames))
 
     return _aggregate_labels(labels, frames_sampled=len(frames))
 
-
-# ─── Face detection (YOLO) ────────────────────────────────────────────────────
-
 def _detect_largest_face_yolo(
     face_model: YOLO,
     frame: np.ndarray,
 ) -> tuple[np.ndarray | None, tuple[float, float, float, float] | None]:
-    """Run YOLOv8n-face on a frame and return the largest face crop + relative bbox.
-
-    YOLO detection models return ``results[0].boxes`` with xyxy coordinates and
-    per-box confidence scores.  We pick the detection with the highest confidence
-    (typically the most prominent face in the frame) to avoid grabbing background
-    faces or false positives.
-
-    Args:
-        face_model: Cached YOLOv8n face detection model.
-        frame: BGR numpy array (H×W×3).
-
-    Returns:
-        ``(face_crop_bgr, (x_rel, y_rel, w_rel, h_rel))`` or ``(None, None)``
-        if no face is detected above the confidence threshold.
-    """
-
+    """Mendeteksi wajah dan mengembalikan potongan wajah terbesar beserta bounding box koordinat relatif (0-1)."""
     h, w = frame.shape[:2]
-
     results = face_model.predict(
         frame,
         conf=VIDEO_FACE_DETECTION_CONFIDENCE,
         verbose=False,
-        # Only detect faces (class 0); saves time if model has multiple classes
-        classes=[0],
+        classes=[0],  # Deteksi kelas wajah saja
     )
 
     if not results or results[0].boxes is None or len(results[0].boxes) == 0:
         return None, None
 
+    # Ambil wajah dengan nilai kecocokan/confidence tertinggi
     boxes = results[0].boxes
-
-    # Pick the box with the highest confidence score
     confidences = boxes.conf.cpu().numpy()
     best_idx = int(np.argmax(confidences))
     x1, y1, x2, y2 = boxes.xyxy[best_idx].cpu().numpy().astype(int)
 
-    # Clamp to frame bounds
-    x1 = max(0, x1)
-    y1 = max(0, y1)
-    x2 = min(w, x2)
-    y2 = min(h, y2)
-
+    # Batasi koordinat agar tidak melebihi ukuran gambar
+    x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
     crop = frame[y1:y2, x1:x2]
     if crop.size == 0:
         return None, None
 
-    # Relative bbox (0–1) matching the API contract
+    # Format bounding box relatif
     bbox = (x1 / w, y1 / h, (x2 - x1) / w, (y2 - y1) / h)
     return crop, bbox
 
-
-# ─── Emotion classification (YOLO-cls) ───────────────────────────────────────
-
 def _classify_emotion(model: YOLO, face_bgr: np.ndarray) -> str:
-    """Run the YOLO classifier on a face crop and return a normalized label."""
-
+    """Mengklasifikasikan emosi dari potongan gambar wajah (hanya mengembalikan label teks)."""
     label, _ = _classify_emotion_with_confidence(model, face_bgr)
     return label
 
-
-def _classify_emotion_with_confidence(
-    model: YOLO,
-    face_bgr: np.ndarray,
-) -> tuple[str, float]:
-    """Run YOLO-cls and return ``(label, confidence 0–1)``."""
-
+def _classify_emotion_with_confidence(model: YOLO, face_bgr: np.ndarray) -> tuple[str, float]:
+    """Mengklasifikasikan emosi wajah dan mengembalikan tuple (label emosi, tingkat keyakinan 0-1)."""
     results = model.predict(face_bgr, verbose=False)
-    if not results:
+    if not results or results[0].probs is None:
         return _DEFAULT_EMOTION, 0.0
 
-    top = results[0]
-    if top.probs is None:
-        return _DEFAULT_EMOTION, 0.0
-
-    label = str(top.names.get(int(top.probs.top1), _DEFAULT_EMOTION)).lower()
+    top = results[0].probs
+    label = str(results[0].names.get(int(top.top1), _DEFAULT_EMOTION)).lower()
+    
     try:
-        confidence = float(top.probs.top1conf)
-        if hasattr(confidence, "item"):
-            confidence = confidence.item()
+        confidence = float(top.top1conf)
     except (AttributeError, TypeError, ValueError):
-        data = getattr(top.probs, "data", None)
-        if data is not None and len(data) > 0:
-            confidence = float(data[int(top.probs.top1)])
-        else:
-            confidence = 0.0
+        confidence = 0.0
+
     return label, round(confidence, 3)
 
-
-# ─── Aggregation ─────────────────────────────────────────────────────────────
-
 def _aggregate_labels(labels: list[str], frames_sampled: int) -> VideoEmotionResult:
-    """Aggregate per-frame labels into session-level metrics and a non-verbal score."""
-
+    """Menggabungkan hasil deteksi ekspresi wajah dari semua frame menjadi nilai ringkasan."""
     total = len(labels)
     counts: dict[str, int] = {}
     for label in labels:
         counts[label] = counts.get(label, 0) + 1
 
-    distribution = {
-        label: round(count / total, 3) for label, count in sorted(counts.items())
-    }
+    distribution = {label: round(count / total, 3) for label, count in sorted(counts.items())}
     dominant = max(counts, key=counts.get)
 
+    # Menghitung persentase frame dengan ekspresi tegang/gugup
     nervous_count = sum(1 for label in labels if label in _NERVOUS_LABELS)
     nervous_rate = round(nervous_count / total, 3)
 
+    # Menghitung skor ekspresi berdasarkan nilai valence emosi
     valence_scores = [_EMOTION_VALENCE.get(label, 0.65) for label in labels]
-    mean_valence = float(np.mean(valence_scores))
-    score = int(max(0, min(100, round(mean_valence * 100))))
+    score = int(max(0, min(100, round(float(np.mean(valence_scores)) * 100))))
 
+    # Menghitung stabilitas ekspresi (flips atau perubahan drastis)
     if total > 1:
         flips = sum(1 for idx in range(1, total) if labels[idx] != labels[idx - 1])
         stability_score = round(1.0 - flips / (total - 1), 3)
@@ -327,24 +221,12 @@ def _aggregate_labels(labels: list[str], frames_sampled: int) -> VideoEmotionRes
         frames_sampled=frames_sampled,
     )
 
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
 def _null_result() -> FrameDetectionResult:
-    """Return a no-face result for the live overlay endpoint."""
-    return FrameDetectionResult(
-        emotion=_DEFAULT_EMOTION,
-        confidence=0.0,
-        bbox_x=None,
-        bbox_y=None,
-        bbox_w=None,
-        bbox_h=None,
-    )
-
+    """Mengembalikan nilai kosong jika tidak ada wajah terdeteksi pada frame kamera langsung."""
+    return FrameDetectionResult(_DEFAULT_EMOTION, 0.0, None, None, None, None)
 
 def _sample_frames_opencv(video_path: Path, target_fps: float) -> list[np.ndarray]:
-    """Sample frames with OpenCV (works for some MP4 builds, often not for WebM)."""
-
+    """Mengambil sampel gambar per detik dari berkas video menggunakan pustaka OpenCV."""
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         return []
@@ -369,47 +251,17 @@ def _sample_frames_opencv(video_path: Path, target_fps: float) -> list[np.ndarra
     cap.release()
     return frames
 
-
 def _sample_frames_ffmpeg(video_path: Path, target_fps: float) -> list[np.ndarray]:
-    """Extract frames with ffmpeg when OpenCV cannot decode browser WebM uploads."""
-
+    """Fungsi fallback mengekstrak frame menggunakan ffmpeg jika pembaca video OpenCV gagal (misalnya format WebM browser)."""
     with tempfile.TemporaryDirectory(prefix="lumen-video-frames-") as tmp:
         pattern = str(Path(tmp) / "frame_%04d.jpg")
         command = [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-i",
-            str(video_path),
-            "-vf",
-            f"fps={target_fps}",
-            "-q:v",
-            "2",
-            pattern,
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+            "-i", str(video_path), "-vf", f"fps={target_fps}", "-q:v", "2", pattern
         ]
         try:
-            subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=FFMPEG_TIMEOUT_SEC,
-            )
-        except FileNotFoundError:
-            log.warning("VideoEmotion: ffmpeg not found; cannot sample frames from %s", video_path.name)
-            return []
-        except subprocess.TimeoutExpired:
-            log.warning("VideoEmotion: ffmpeg frame extraction timed out for %s", video_path.name)
-            return []
-        except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or "").strip()
-            log.warning(
-                "VideoEmotion: ffmpeg frame extraction failed for %s — %s",
-                video_path.name,
-                stderr,
-            )
+            subprocess.run(command, check=True, capture_output=True, timeout=FFMPEG_TIMEOUT_SEC)
+        except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
             return []
 
         frames: list[np.ndarray] = []
@@ -419,30 +271,17 @@ def _sample_frames_ffmpeg(video_path: Path, target_fps: float) -> list[np.ndarra
                 frames.append(frame)
         return frames
 
-
 def _sample_frames(video_path: Path, target_fps: float) -> list[np.ndarray]:
-    """Read a video and uniformly sample frames at the target frame rate.
-
-    Browser ``MediaRecorder`` uploads are usually WebM (VP9/Opus). OpenCV's
-    ``VideoCapture`` often cannot open those files on Windows, while live preview
-    detection uses raw JPEG frames instead. Fall back to ffmpeg so post-recording
-    analysis sees the same faces as the recording overlay.
-    """
-
+    """Mengambil sampel gambar dari video, otomatis mendeteksi kegagalan OpenCV dan beralih ke ffmpeg."""
     frames = _sample_frames_opencv(video_path, target_fps)
     if frames:
         return frames
 
-    log.info(
-        "VideoEmotion: OpenCV read 0 frames from %s; using ffmpeg fallback",
-        video_path.name,
-    )
+    log.info("VideoEmotion: OpenCV gagal membaca berkas; menggunakan ffmpeg fallback.")
     return _sample_frames_ffmpeg(video_path, target_fps)
 
-
 def _default_result(frames_sampled: int) -> VideoEmotionResult:
-    """Return unavailable metrics when no face is detected or processing fails."""
-
+    """Kembalian default jika analisis visual tidak dapat berjalan."""
     return VideoEmotionResult(
         dominant_emotion=_DEFAULT_EMOTION,
         emotion_distribution={_DEFAULT_EMOTION: 1.0},

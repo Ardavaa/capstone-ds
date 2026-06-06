@@ -1,7 +1,9 @@
-"""Audio extraction utilities for uploaded interview media."""
+"""
+Ekstraksi Audio
+Mengekstrak dan menormalisasi trek audio dari berkas media menjadi format WAV mono 16 kHz.
+"""
 
 from __future__ import annotations
-
 import logging
 import subprocess
 from pathlib import Path
@@ -17,18 +19,14 @@ _NO_AUDIO_ERROR = (
     "Uploaded media has no audio track. Record again with microphone access enabled."
 )
 
-
 class AudioExtractionError(RuntimeError):
-    """Raised when uploaded media cannot be converted to analysis audio."""
-
+    """Kesalahan umum ketika ekstraksi audio gagal."""
 
 class AudioExtractionTimeoutError(AudioExtractionError):
-    """Raised when ffmpeg does not finish within the configured timeout."""
-
+    """Kesalahan ketika proses ffmpeg memakan waktu terlalu lama."""
 
 def _run_ffmpeg(command: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run an ffmpeg/ffprobe command with a shared timeout."""
-
+    """Menjalankan perintah ffmpeg/ffprobe dengan timeout yang disetel."""
     return subprocess.run(
         command,
         check=True,
@@ -37,101 +35,53 @@ def _run_ffmpeg(command: list[str]) -> subprocess.CompletedProcess[str]:
         timeout=FFMPEG_TIMEOUT_SEC,
     )
 
-
 def _count_audio_streams(input_path: Path) -> int:
-    """Return how many audio streams ffprobe finds in the upload."""
-
+    """Menghitung berapa banyak trek audio yang ada di dalam berkas media."""
     command = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-select_streams",
-        "a",
-        "-show_entries",
-        "stream=index",
-        "-of",
-        "csv=p=0",
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=index", "-of", "csv=p=0",
         str(input_path),
     ]
     try:
         result = _run_ffmpeg(command)
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return len(lines)
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return 0
 
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return len(lines)
-
-
 def _ffmpeg_extract_commands(input_path: Path, output_path: Path) -> list[list[str]]:
-    """Build ffmpeg command variants, ordered from strictest to most permissive."""
-
+    """Membuat daftar variasi perintah ffmpeg dari yang paling ketat hingga longgar."""
     output = str(output_path)
     source = str(input_path)
-    base_tail = ["-map", "0:a:0?", "-vn", "-c:a", "pcm_s16le", "-ar", "16000", "-ac", "1", output]
+    # Parameter dasar: tanpa video (-vn), codec pcm 16-bit, sample rate 16000, 1 channel (mono)
+    base_params = ["-map", "0:a:0?", "-vn", "-c:a", "pcm_s16le", "-ar", "16000", "-ac", "1", output]
 
     commands: list[list[str]] = [
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", source, *base_tail],
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", source, *base_params],
     ]
 
+    # WebM membutuhkan penanganan khusus jika metadata rusak
     if input_path.suffix.lower() == ".webm":
         commands.append(
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-f",
-                "webm",
-                "-i",
-                source,
-                *base_tail,
-            ],
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "webm", "-i", source, *base_params]
         )
         commands.append(
             [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-fflags",
-                "+discardcorrupt+genpts",
-                "-err_detect",
-                "ignore_err",
-                "-i",
-                source,
-                *base_tail,
-            ],
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-fflags", "+discardcorrupt+genpts", "-err_detect", "ignore_err",
+                "-i", source, *base_params
+            ]
         )
 
     return commands
 
-
 def extract_audio_to_wav(input_path: Path, output_path: Path) -> Path:
-    """Extract or normalize uploaded media audio into a 16 kHz mono WAV file.
-
-    Browser ``MediaRecorder`` WebM files may be missing an audio stream or use a
-    container that needs permissive decode flags; this helper probes the upload
-    first and retries ffmpeg with safer options before failing.
-
-    Args:
-        input_path: Path to the uploaded media file.
-        output_path: Destination path for the extracted WAV audio.
-
-    Returns:
-        The output WAV path.
-
-    Raises:
-        AudioExtractionError: If ffmpeg is unavailable or audio extraction fails.
-        AudioExtractionTimeoutError: If extraction exceeds the configured timeout.
-    """
-
+    """Mengekstrak trek audio dari video/audio unggahan kandidat ke berkas WAV mono 16 kHz."""
     if output_path.exists():
         output_path.unlink()
 
-    audio_streams = _count_audio_streams(input_path)
-    if audio_streams == 0:
+    # Validasi apakah berkas memiliki suara
+    if _count_audio_streams(input_path) == 0:
         raise AudioExtractionError(_NO_AUDIO_ERROR)
 
     last_stderr = ""
@@ -139,24 +89,17 @@ def extract_audio_to_wav(input_path: Path, output_path: Path) -> Path:
         try:
             _run_ffmpeg(command)
         except FileNotFoundError as exc:
-            raise AudioExtractionError(
-                "ffmpeg is not installed or is not available on PATH.",
-            ) from exc
+            raise AudioExtractionError("ffmpeg is not installed or is not available on PATH.") from exc
         except subprocess.TimeoutExpired as exc:
-            raise AudioExtractionTimeoutError(
-                "Media audio extraction timed out.",
-            ) from exc
+            raise AudioExtractionTimeoutError("Media audio extraction timed out.") from exc
         except subprocess.CalledProcessError as exc:
             last_stderr = (exc.stderr or "").strip()
-            log.warning(
-                "ffmpeg audio extraction failed for %s: %s",
-                input_path.name,
-                last_stderr,
-            )
+            log.warning("ffmpeg gagal untuk %s: %s", input_path.name, last_stderr)
             if output_path.exists():
                 output_path.unlink()
             continue
 
+        # Jika berhasil mengekstrak berkas audio yang valid
         if output_path.exists() and output_path.stat().st_size > 44:
             return output_path
 

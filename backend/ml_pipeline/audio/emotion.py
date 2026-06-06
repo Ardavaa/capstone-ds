@@ -1,7 +1,9 @@
-"""Voice emotion analysis (Speech Emotion Recognition) for interview audio."""
+"""
+Analisis Emosi Suara (Speech Emotion Recognition)
+Menggunakan model kecerdasan buatan untuk mendeteksi emosi suara kandidat.
+"""
 
 from __future__ import annotations
-
 import logging
 from dataclasses import dataclass
 from functools import cache
@@ -14,7 +16,7 @@ import torch
 from transformers import pipeline
 from transformers.pipelines import Pipeline
 
-from core.config import (  # noqa: E402 – config sets HF_HOME as side-effect
+from core.config import (
     EMOTION_CHUNK_SEC,
     EMOTION_DELIVERY_BLEND_WEIGHT,
     EMOTION_MIN_CHUNK_SEC,
@@ -25,22 +27,15 @@ from core.config import (  # noqa: E402 – config sets HF_HOME as side-effect
 
 log = logging.getLogger(__name__)
 
-# Interview-friendly valence per normalized emotion label (0–1).
+# Nilai valence emosi (0-1) yang ramah untuk wawancara kerja
 _EMOTION_VALENCE: dict[str, float] = {
-    "neutral": 1.0,
-    "neu": 1.0,
-    "calm": 1.0,
-    "happy": 0.95,
-    "hap": 0.95,
-    "surprised": 0.75,
-    "sur": 0.75,
+    "neutral": 1.0, "neu": 1.0, "calm": 1.0,
+    "happy": 0.95, "hap": 0.95,
+    "surprised": 0.75, "sur": 0.75,
     "sad": 0.35,
-    "angry": 0.25,
-    "ang": 0.25,
-    "fearful": 0.30,
-    "fear": 0.30,
-    "disgust": 0.20,
-    "dis": 0.20,
+    "angry": 0.25, "ang": 0.25,
+    "fearful": 0.30, "fear": 0.30,
+    "disgust": 0.20, "dis": 0.20,
 }
 
 _NERVOUS_LABELS: frozenset[str] = frozenset(
@@ -49,20 +44,8 @@ _NERVOUS_LABELS: frozenset[str] = frozenset(
 
 _DEFAULT_EMOTION = "neutral"
 
-
 @dataclass(frozen=True)
 class EmotionAnalysisResult:
-    """Voice emotion metrics for a single interview recording.
-
-    Attributes:
-        dominant_emotion: Most frequent predicted emotion label.
-        emotion_distribution: Share of each emotion label across analyzed chunks.
-        stability_score: 0–1 stability (higher = fewer emotion flips).
-        nervous_rate: Fraction of chunks tagged as sad/angry/fearful.
-        emotion_score: Interview-oriented voice emotion score 0–100.
-        chunks_analyzed: Number of speech chunks scored by the model.
-    """
-
     dominant_emotion: str
     emotion_distribution: dict[str, float]
     stability_score: float
@@ -70,72 +53,47 @@ class EmotionAnalysisResult:
     emotion_score: int
     chunks_analyzed: int
 
-
 @cache
 def get_emotion_pipeline() -> Pipeline:
-    """Create and cache the Hugging Face audio emotion classification pipeline."""
-
-    log.info("SER: loading pipeline  model_id=%r", EMOTION_MODEL_ID)
+    """Memuat dan menyimpan cache model klasifikasi emosi suara Hugging Face."""
+    log.info("SER: memuat model_id=%r", EMOTION_MODEL_ID)
     device = 0 if torch.cuda.is_available() else -1
     pipe = pipeline(
         task="audio-classification",
         model=EMOTION_MODEL_ID,
         device=device,
     )
-    log.info("SER: pipeline ready  device=%s", "cuda" if device == 0 else "cpu")
+    log.info("SER: model siap pada device=%s", "cuda" if device == 0 else "cpu")
     return pipe
 
-
 def analyze_voice_emotion(audio_path: Path) -> EmotionAnalysisResult:
-    """Run SER on speech segments of a mono WAV interview recording.
-
-    Args:
-        audio_path: Path to normalized 16 kHz mono WAV audio.
-
-    Returns:
-        Aggregated emotion metrics and interview-oriented emotion score.
-    """
-
+    """Menganalisis emosi suara dari potongan-potongan rekaman wawancara."""
     chunks = _extract_speech_chunks(audio_path)
     if not chunks:
-        log.warning("SER: no speech chunks found  path=%s", audio_path.name)
+        log.warning("SER: tidak ada segmen suara yang ditemukan pada %s", audio_path.name)
         return _default_result()
 
     try:
         classifier = get_emotion_pipeline()
         labels = [_classify_chunk(classifier, chunk) for chunk in chunks]
-        log.info("SER: classified %d chunks  dominant=%s", len(labels), max(set(labels), key=labels.count))
     except Exception as exc:
-        log.warning("SER: classifier failed, using prosody fallback — %s: %s", type(exc).__name__, exc)
+        log.warning("SER: model gagal, menggunakan prosody fallback — %s", exc)
         labels = [_prosody_fallback_label(chunk) for chunk in chunks]
 
     return _aggregate_labels(labels)
-
 
 def blend_delivery_score(
     fluency_score: int,
     emotion_score: int,
     emotion_weight: float = EMOTION_DELIVERY_BLEND_WEIGHT,
 ) -> int:
-    """Blend fluency (WPM/fillers) and voice emotion into one delivery dimension score.
-
-    Args:
-        fluency_score: Rule-based fluency score 0–100.
-        emotion_score: Voice emotion score 0–100.
-        emotion_weight: Weight given to emotion (default 25%).
-
-    Returns:
-        Combined delivery score clamped to ``[0, 100]``.
-    """
-
+    """Menggabungkan skor kelancaran verbal dengan skor kestabilan emosi suara."""
     fluency_weight = 1.0 - emotion_weight
     raw = fluency_weight * fluency_score + emotion_weight * emotion_score
     return int(max(0, min(100, round(raw))))
 
-
 def _extract_speech_chunks(audio_path: Path) -> list[np.ndarray]:
-    """Split non-silent regions into chunks suitable for the SER model."""
-
+    """Membagi suara menjadi potongan kecil (chunk) untuk dianalisis oleh AI."""
     try:
         waveform, _ = librosa.load(str(audio_path), sr=EMOTION_SAMPLE_RATE, mono=True)
     except Exception:
@@ -144,6 +102,7 @@ def _extract_speech_chunks(audio_path: Path) -> list[np.ndarray]:
     if waveform.size == 0:
         return []
 
+    # Dapatkan interval suara aktif (bukan keheningan)
     intervals = librosa.effects.split(waveform, top_db=PAUSE_TOP_DB)
     chunk_samples = int(EMOTION_CHUNK_SEC * EMOTION_SAMPLE_RATE)
     min_samples = int(EMOTION_MIN_CHUNK_SEC * EMOTION_SAMPLE_RATE)
@@ -158,6 +117,7 @@ def _extract_speech_chunks(audio_path: Path) -> list[np.ndarray]:
             chunks.append(segment.astype(np.float32))
             continue
 
+        # Jika suara terlalu panjang, potong-potong per beberapa detik
         for offset in range(0, segment.size, chunk_samples):
             piece = segment[offset : offset + chunk_samples]
             if piece.size >= min_samples:
@@ -165,10 +125,8 @@ def _extract_speech_chunks(audio_path: Path) -> list[np.ndarray]:
 
     return chunks
 
-
 def _classify_chunk(classifier: Pipeline, chunk: np.ndarray) -> str:
-    """Classify a single waveform chunk and return a normalized label."""
-
+    """Menjalankan klasifikasi emosi pada satu potongan audio."""
     result = cast(
         list[dict[str, Any]],
         classifier(
@@ -180,15 +138,10 @@ def _classify_chunk(classifier: Pipeline, chunk: np.ndarray) -> str:
         return _DEFAULT_EMOTION
 
     label = result[0].get("label", _DEFAULT_EMOTION)
-    if not isinstance(label, str):
-        return _DEFAULT_EMOTION
-
-    return _normalize_label(label)
-
+    return _normalize_label(str(label))
 
 def _prosody_fallback_label(chunk: np.ndarray) -> str:
-    """Lightweight heuristic when the HF model is unavailable."""
-
+    """Fungsi fallback alternatif jika model AI gagal memproses."""
     rms = float(np.sqrt(np.mean(np.square(chunk))))
     zcr = float(np.mean(librosa.feature.zero_crossing_rate(chunk)))
 
@@ -200,10 +153,8 @@ def _prosody_fallback_label(chunk: np.ndarray) -> str:
         return "angry"
     return "neutral"
 
-
 def _aggregate_labels(labels: list[str]) -> EmotionAnalysisResult:
-    """Aggregate per-chunk labels into session-level metrics."""
-
+    """Menggabungkan hasil emosi per-potongan suara menjadi satu laporan akhir."""
     total = len(labels)
     counts: dict[str, int] = {}
     for label in labels:
@@ -214,13 +165,16 @@ def _aggregate_labels(labels: list[str]) -> EmotionAnalysisResult:
     }
     dominant = max(counts, key=counts.get)
 
+    # Hitung tingkat kegugupan (nervous rate)
     nervous_count = sum(1 for label in labels if label in _NERVOUS_LABELS)
     nervous_rate = round(nervous_count / total, 3)
 
+    # Hitung nilai valence rata-rata
     valence_scores = [_emotion_valence(label) for label in labels]
     mean_valence = float(np.mean(valence_scores))
     emotion_score = int(max(0, min(100, round(mean_valence * 100))))
 
+    # Kestabilan emosi (seberapa sering emosi berubah-ubah)
     if total > 1:
         flips = sum(1 for idx in range(1, total) if labels[idx] != labels[idx - 1])
         stability_score = round(1.0 - flips / (total - 1), 3)
@@ -238,25 +192,19 @@ def _aggregate_labels(labels: list[str]) -> EmotionAnalysisResult:
         chunks_analyzed=total,
     )
 
-
 def _emotion_valence(label: str) -> float:
-    """Map a label to interview-friendly valence in ``[0, 1]``."""
-
+    """Mendapatkan nilai keramahan emosi untuk wawancara kerja."""
     return _EMOTION_VALENCE.get(label, 0.65)
 
-
 def _normalize_label(label: str) -> str:
-    """Normalize HF label strings (e.g. ``LABEL_0`` or ``ang``) to lowercase keys."""
-
+    """Menyederhanakan penamaan label dari model Hugging Face."""
     cleaned = label.lower().strip()
     if cleaned.startswith("label_"):
         return _DEFAULT_EMOTION
     return cleaned.split("_")[-1] if cleaned else _DEFAULT_EMOTION
 
-
 def _default_result() -> EmotionAnalysisResult:
-    """Return unavailable metrics when no speech is detected."""
-
+    """Hasil default jika analisis gagal atau tidak ada suara."""
     return EmotionAnalysisResult(
         dominant_emotion=_DEFAULT_EMOTION,
         emotion_distribution={_DEFAULT_EMOTION: 1.0},

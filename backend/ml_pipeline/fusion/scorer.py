@@ -1,7 +1,9 @@
-"""Weighted score fusion and rule-based actionable feedback."""
+"""
+Penggabungan Skor dan Feedback (Score Fusion & Feedback)
+Menggabungkan skor dari berbagai penilaian (konten, suara, visual) dan memberikan saran otomatis.
+"""
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 
 from core.config import (
@@ -17,49 +19,26 @@ from ml_pipeline.audio.emotion import EmotionAnalysisResult
 from ml_pipeline.text.scoring import ContentScoreResult
 from ml_pipeline.video.emotion import VideoEmotionResult
 
-
 @dataclass(frozen=True)
 class FusionResult:
-    """Final fused interview score and dimension breakdown.
-
-    Attributes:
-        final_score: Weighted total score from 0 to 100.
-        content_score: Text/content dimension score.
-        delivery_score: Audio delivery dimension score.
-        non_verbal_score: Visual/non-verbal dimension score.
-        feedback: Actionable feedback keyed by dimension.
-    """
-
     final_score: int
     content_score: int
     delivery_score: int
     non_verbal_score: int
     feedback: dict[str, str]
 
-
 def _duration_penalty_factor(duration_sec: float) -> tuple[float, bool]:
-    """Return a (multiplier, hard_capped) tuple for score adjustment based on duration.
-
-    Recordings under DURATION_FLOOR_SEC are hard-capped at DURATION_HARD_CAP_SCORE.
-    Recordings between DURATION_FLOOR_SEC and MIN_DURATION_FULL_SCORE_SEC receive
-    a linear penalty that scales scores down proportionally.
-    Recordings at or above MIN_DURATION_FULL_SCORE_SEC are not penalized.
-
-    Args:
-        duration_sec: Total recording duration in seconds.
-
-    Returns:
-        (multiplier, hard_capped) where multiplier ∈ (0, 1] and
-        hard_capped=True means the caller should enforce the hard cap.
-    """
+    """Menghitung pinalti nilai jika durasi rekaman terlalu singkat."""
     if duration_sec < DURATION_FLOOR_SEC:
-        return 0.0, True  # signal hard cap
+        return 0.0, True  # Di bawah batas minimum mutlak (sinyal hard cap)
+    
     if duration_sec < MIN_DURATION_FULL_SCORE_SEC:
-        # Linear ramp: 0 at floor → 1.0 at full threshold
+        # Penurunan linear dari durasi penuh ke durasi lantai
         factor = (duration_sec - DURATION_FLOOR_SEC) / (
             MIN_DURATION_FULL_SCORE_SEC - DURATION_FLOOR_SEC
         )
         return max(0.0, min(1.0, factor)), False
+    
     return 1.0, False
 
 def fuse(
@@ -69,20 +48,9 @@ def fuse(
     *,
     include_non_verbal: bool = True,
 ) -> int:
-    """Compute weighted final score (40% content, 30% delivery, 30% non-verbal).
-
-    Args:
-        content_score: Text/content score 0–100.
-        delivery_score: Audio delivery score 0–100.
-        non_verbal_score: Non-verbal score 0–100.
-        include_non_verbal: Whether the non-verbal score came from analyzed
-            video frames and should contribute to the final score.
-
-    Returns:
-        Rounded final score clamped to ``[0, 100]``.
-    """
-
+    """Menggabungkan skor konten, suara, dan visual menggunakan pembobotan."""
     if not include_non_verbal:
+        # Jika video tidak ada wajah, gabungkan konten (40%) dan penyampaian suara (30%) saja
         available_weight = WEIGHT_CONTENT + WEIGHT_DELIVERY
         raw = (
             WEIGHT_CONTENT * content_score
@@ -90,13 +58,13 @@ def fuse(
         ) / available_weight
         return int(max(0, min(100, round(raw))))
 
+    # Bobot penuh: Konten 40%, Suara 30%, Visual 30%
     raw = (
         WEIGHT_CONTENT * content_score
         + WEIGHT_DELIVERY * delivery_score
         + WEIGHT_NON_VERBAL * non_verbal_score
     )
     return int(max(0, min(100, round(raw))))
-
 
 def build_feedback(
     content_score: int,
@@ -108,33 +76,15 @@ def build_feedback(
     content_details: ContentScoreResult | None = None,
     duration_sec: float = 0.0,
 ) -> dict[str, str]:
-    """Generate rule-based actionable feedback from analysis metrics.
-
-    Args:
-        content_score: Text/content dimension score.
-        delivery: Delivery analysis metrics and score.
-        non_verbal_score: Non-verbal dimension score.
-        transcription_preview: Short transcript snippet for content feedback.
-        emotion: Optional voice emotion metrics for delivery feedback.
-        video_emotion: Optional facial emotion metrics for non-verbal feedback.
-        content_details: Optional content breakdown for richer feedback.
-        duration_sec: Recording duration used to inject a short-answer warning.
-
-    Returns:
-        Feedback dictionary with ``content``, ``delivery``, and ``non_verbal`` keys.
-    """
-
-    # ── Short-recording guard ────────────────────────────────────────────────
+    """Membuat saran/masukan (feedback) otomatis berdasarkan performa jawaban kandidat."""
+    # 1. Cek durasi terlalu singkat
     if duration_sec < DURATION_FLOOR_SEC:
         short_warning = (
             f"⚠️ Recording is too short ({duration_sec:.0f}s). "
             "Scores are unreliable — please record a full answer of at least 30 seconds."
         )
-        return {
-            "content": short_warning,
-            "delivery": short_warning,
-            "non_verbal": short_warning,
-        }
+        return {"content": short_warning, "delivery": short_warning, "non_verbal": short_warning}
+
     duration_note = ""
     if duration_sec < MIN_DURATION_FULL_SCORE_SEC:
         duration_note = (
@@ -142,8 +92,8 @@ def build_feedback(
             f"aim for at least {int(MIN_DURATION_FULL_SCORE_SEC)}s for a reliable score."
         )
 
+    # 2. Feedback Konten (Pesan jawaban)
     preview = transcription_preview[:120] + ("…" if len(transcription_preview) > 120 else "")
-
     if content_details is not None:
         if content_details.semantic_score < 55:
             relevance_hint = "Try to answer the specific question more directly."
@@ -151,9 +101,7 @@ def build_feedback(
             relevance_hint = "Cover more key points from the question (examples, steps, outcomes)."
         elif content_details.completeness_score < 55:
             if content_details.behavioral_question:
-                relevance_hint = (
-                    "Expand using STAR: Situation, Task, Action, and Result with concrete detail."
-                )
+                relevance_hint = "Expand using STAR: Situation, Task, Action, and Result with concrete detail."
             else:
                 relevance_hint = "Give a fuller explanation with examples and clearer structure."
         else:
@@ -167,34 +115,22 @@ def build_feedback(
             f'Preview: "{preview}"'
         )
     elif content_score >= 80:
-        content_msg = (
-            f"Strong alignment with the interview question. "
-            f'Preview: "{preview}"'
-        )
+        content_msg = f"Strong alignment with the interview question. Preview: \"{preview}\""
     elif content_score >= 60:
-        content_msg = (
-            "Answer is somewhat on-topic — add more concrete examples "
-            "that directly address the interview question."
-        )
+        content_msg = "Answer is somewhat on-topic — add more concrete examples that directly address the interview question."
     else:
-        content_msg = (
-            "Content appears off-topic or too brief. Restructure answers "
-            "to directly address the interview question."
-        )
+        content_msg = "Content appears off-topic or too brief. Restructure answers to directly address the interview question."
 
+    # 3. Feedback Penyampaian Suara (Delivery)
     if delivery.filler_rate > 4.0:
         delivery_msg = (
             f"Filler word rate is {delivery.filler_rate:.1f}% "
             f"({delivery.filler_count} detected). Replace fillers with brief pauses."
         )
     elif delivery.wpm > 170:
-        delivery_msg = (
-            f"Pacing is fast at {delivery.wpm} WPM — slow down slightly for clarity."
-        )
-    elif delivery.wpm < 100 and delivery.wpm > 0:
-        delivery_msg = (
-            f"Pacing is slow at {delivery.wpm} WPM — aim closer to 130–150 WPM."
-        )
+        delivery_msg = f"Pacing is fast at {delivery.wpm} WPM — slow down slightly for clarity."
+    elif 0 < delivery.wpm < 100:
+        delivery_msg = f"Pacing is slow at {delivery.wpm} WPM — aim closer to 130–150 WPM."
     else:
         delivery_msg = (
             f"Solid delivery at {delivery.wpm} WPM with {delivery.filler_rate:.1f}% fillers. "
@@ -214,11 +150,9 @@ def build_feedback(
                 f"{stability_pct}% stability)."
             )
         else:
-            delivery_msg += (
-                f" Voice emotion score {emotion.emotion_score}/100 "
-                f"({emotion.dominant_emotion})."
-            )
+            delivery_msg += f" Voice emotion score {emotion.emotion_score}/100 ({emotion.dominant_emotion})."
 
+    # 4. Feedback Visual/Non-Verbal
     if video_emotion is not None and video_emotion.frames_analyzed > 0:
         stability_pct = int(video_emotion.stability_score * 100)
         if video_emotion.nervous_rate >= 0.4:
@@ -234,8 +168,7 @@ def build_feedback(
             )
         else:
             non_verbal_msg = (
-                f"Facial emotion score {non_verbal_score}/100 "
-                f"({video_emotion.dominant_emotion}, {stability_pct}% stability)."
+                f"Facial emotion score {non_verbal_score}/100 ({video_emotion.dominant_emotion}, {stability_pct}% stability)."
             )
     else:
         non_verbal_msg = (
@@ -243,6 +176,7 @@ def build_feedback(
             "visible and well-lit throughout the recording."
         )
 
+    # Menambahkan catatan durasi ke seluruh aspek feedback jika durasinya kurang
     if duration_note:
         content_msg += duration_note
         delivery_msg += duration_note
@@ -254,7 +188,6 @@ def build_feedback(
         "non_verbal": non_verbal_msg,
     }
 
-
 def run_fusion(
     content_score: int,
     delivery: DeliveryAnalysisResult,
@@ -265,27 +198,14 @@ def run_fusion(
     blended_delivery_score: int | None = None,
     content_details: ContentScoreResult | None = None,
 ) -> FusionResult:
-    """Fuse dimension scores and build feedback in one step.
-
-    Args:
-        content_score: Text/content score 0–100.
-        delivery: Delivery analysis result including delivery score.
-        non_verbal_score: Non-verbal score 0–100.
-        transcription: Full transcript text for feedback preview.
-        emotion: Optional voice emotion metrics for feedback.
-        video_emotion: Optional facial emotion metrics for non-verbal feedback.
-        blended_delivery_score: Delivery score after blending fluency + emotion.
-        content_details: Optional content breakdown for feedback messaging.
-
-    Returns:
-        ``FusionResult`` with final score and feedback.
-    """
-
+    """Mengintegrasikan seluruh skor dan menyusun feedback final."""
     delivery_score = (
         blended_delivery_score
         if blended_delivery_score is not None
         else delivery.delivery_score
     )
+    
+    # Cek apakah ada frame wajah yang dianalisis
     include_non_verbal = video_emotion is None or video_emotion.frames_analyzed > 0
     final = fuse(
         content_score,
@@ -294,9 +214,7 @@ def run_fusion(
         include_non_verbal=include_non_verbal,
     )
 
-    # ── Duration penalty ──────────────────────────────────────────────────────
-    # Very short recordings produce unreliable scores. We either hard-cap or
-    # linearly scale the final score down to discourage gaming by stopping early.
+    # Penyesuaian nilai berdasarkan durasi (misal jika terlalu singkat)
     penalty_factor, hard_capped = _duration_penalty_factor(delivery.duration_sec)
     if hard_capped:
         final = min(final, DURATION_HARD_CAP_SCORE)
