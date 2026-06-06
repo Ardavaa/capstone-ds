@@ -50,3 +50,151 @@ html {
     transform: translateY(0);
   }
 }
+
+/* ── Glass Button ───────────────────────────────────────────────────── */
+
+.glass-button-wrap {
+  position: relative;
+  display: inline-flex;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+/* The actual button */
+.glass-button {
+  position: relative;
+  z-index: 1;
+  border-radius: 9999px;
+  /* Semi-transparent white glass fill - made more transparent for better glass refraction */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.48) 0%,
+    rgba(255, 255, 255, 0.16) 100%
+  );
+  /* Glass border — bright top highlight, subtle dark bottom outline */
+  border-top: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-left: 1.2px solid rgba(255, 255, 255, 0.60);
+  border-right: 1.2px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.08);
+  /* Blur the content behind */
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  /* 3D Convex Inner Shadows & Outer Shadows */
+  box-shadow:
+    0 1.5px 0 rgba(255, 255, 255, 0.9) inset,
+    0 -2px 3px rgba(0, 0, 0, 0.03) inset,
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.03);
+  color: #0c0c0d;
+  /* Letterpress text shadow effect */
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s ease;
+  cursor: pointer;
+}
+
+/* Top glare shine — key to glossy convex look */
+.glass-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 42%;
+  border-radius: 9999px 9999px 55% 55%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+}
+
+/* Bottom subtle reflection */
+.glass-button::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 25%;
+  border-radius: 0 0 9999px 9999px;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.25) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.glass-button:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.32) 100%
+  );
+  box-shadow:
+    0 1.5px 0 rgba(255, 255, 255, 0.9) inset,
+    0 -2px 3px rgba(0, 0, 0, 0.02) inset,
+    0 8px 20px rgba(0, 0, 0, 0.07),
+    0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.glass-button:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 -1px 2px rgba(0, 0, 0, 0.04) inset,
+    0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.glass-button-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 2;
+  /* Faint text reflection below the text wrapper (both icon and text) */
+  -webkit-box-reflect: below -2px linear-gradient(transparent 30%, rgba(0, 0, 0, 0.06));
+}
+
+/* Diffused shadow blob below the button */
+.glass-button-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -8px;
+  height: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  filter: blur(8px);
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+}
+
+.glass-button-wrap:hover .glass-button-shadow {
+  transform: scale(1.06) translateY(1px);
+  background: rgba(0, 0, 0, 0.07);
+  filter: blur(9px);
+}
+
+.glass-button-wrap:active .glass-button-shadow {
+  transform: scale(0.96) translateY(-1px);
+  filter: blur(5px);
+  opacity: 0.85;
+}
+
+/* ── Hero Dot Grid Background ── */
+.hero-dot-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(rgba(15, 23, 42, 0.07) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at center, black 45%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 85%);
+}

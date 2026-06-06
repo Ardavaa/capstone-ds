@@ -3,6 +3,7 @@ import Image from "next/image";
 import { HorizontalMarquee } from "@/components/ui/marquee";
 import { AnimatedStatsSection } from "@/components/ui/animated-stats";
 import { ScrollNavbar, Reveal } from "@/components/ui/scroll-effects";
+import { GlassButton } from "@/components/ui/glass-button";
 
 // ─── Icon components ────────────────────────────────────────────────────────
 
@@ -186,8 +187,11 @@ export default function LandingPage() {
       </ScrollNavbar>
 
       {/* ── HERO (clean centered — exact Conferra style) ── */}
-      <section className="px-6 pb-0 pt-14 text-center">
-        <div className="mx-auto max-w-3xl">
+      <section className="relative px-6 pb-0 pt-14 text-center overflow-hidden">
+        {/* Dot grid background to allow glass button to refract */}
+        <div className="hero-dot-grid pointer-events-none" />
+
+        <div className="relative z-10 mx-auto max-w-3xl">
 
           {/* Eyebrow tag */}
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[13px] text-slate-600 shadow-sm">
@@ -217,15 +221,14 @@ export default function LandingPage() {
 
           {/* CTAs */}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/simulation/setup"
-              className="inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-[12px] bg-[#814df5] px-6 py-3 text-[15px] font-medium text-white transition-all hover:bg-[#703ee3]"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                <path d="M23 7l-7 5 7 5V7z" />
-                <rect x="1" y="5" width="15" height="14" rx="3" ry="3" />
-              </svg>
-              Start Simulation
+            <Link href="/simulation/setup">
+              <GlassButton size="default" contentClassName="flex items-center gap-2.5 text-[15px]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <path d="M23 7l-7 5 7 5V7z" />
+                  <rect x="1" y="5" width="15" height="14" rx="3" ry="3" />
+                </svg>
+                Start Simulation
+              </GlassButton>
             </Link>
             <Link
               href="/dashboard"
@@ -246,7 +249,7 @@ export default function LandingPage() {
         </div>
 
         {/* ── Product screenshot — full-width with mist background ── */}
-        <div className="relative mx-auto mt-14 max-w-5xl pb-0">
+        <div className="relative z-10 mx-auto mt-14 max-w-5xl pb-0">
           {/* Mist / gradient background behind the screenshot */}
           <div
             className="absolute inset-x-0 bottom-0 top-8 rounded-3xl"
