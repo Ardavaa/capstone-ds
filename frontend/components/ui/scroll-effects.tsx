@@ -8,28 +8,26 @@ export function ScrollNavbar({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll(); // initial check
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <div
-      className="sticky top-0 z-50 flex justify-center px-5 pt-5 pb-3 transition-all duration-500"
-      style={{
-        paddingTop: scrolled ? "12px" : "20px",
-      }}
-    >
+    <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none">
       <nav
-        className="flex w-full max-w-[860px] items-center justify-between rounded-full px-4 py-2.5 transition-all duration-500"
+        className={`group pointer-events-auto flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          scrolled
+            ? "is-scrolled w-[calc(100%-40px)] max-w-[860px] rounded-[32px] mt-4 px-4 py-2.5"
+            : "w-full max-w-full rounded-none mt-0 px-8 py-5 md:px-12"
+        }`}
         style={{
-          background: scrolled
-            ? "rgba(28, 28, 30, 0.92)"
-            : "linear-gradient(to top, #262626, #292929)",
-          backdropFilter: scrolled ? "blur(20px) saturate(180%)" : "none",
+          background: scrolled ? "rgba(10, 13, 20, 0.85)" : "rgba(10, 13, 20, 0)",
+          backdropFilter: scrolled ? "blur(20px) saturate(180%)" : "blur(0px) saturate(100%)",
           boxShadow: scrolled
             ? "0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset"
-            : "0 25px 50px rgba(0,0,0,0.2)",
-          outline: scrolled ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(255,255,255,0.05)",
+            : "0 0px 0px rgba(0,0,0,0), 0 0px 0 rgba(255,255,255,0) inset",
+          border: scrolled ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(255,255,255,0)",
         }}
       >
         {children}

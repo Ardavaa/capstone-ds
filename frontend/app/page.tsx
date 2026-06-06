@@ -154,14 +154,14 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-full flex-col bg-white" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-      {/* ── NAVBAR (dark pill — exact Conferra style) ── */}
+      {/* ── NAVBAR (Adaptive Flat to Pill) ── */}
       <ScrollNavbar>
         {/* Logo */}
         <div className="flex items-center gap-2.5 pl-2">
-          <div className="flex items-center justify-center text-white/90">
+          <div className="flex items-center justify-center text-slate-900 group-[.is-scrolled]:text-white/90 transition-colors">
             <IconLogo size={22} />
           </div>
-          <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
+          <span className="text-[17px] font-bold tracking-tight text-slate-900 group-[.is-scrolled]:text-white group-[.is-scrolled]:font-normal transition-colors">Lumen</span>
         </div>
 
         {/* Nav links */}
@@ -170,7 +170,7 @@ export default function LandingPage() {
             <a
               key={item}
               href={`#${item.toLowerCase()}`}
-              className="text-[14px] font-light text-white transition-colors hover:text-white/80"
+              className="text-[14px] font-medium text-slate-600 group-[.is-scrolled]:font-light group-[.is-scrolled]:text-white transition-colors hover:text-slate-900 group-[.is-scrolled]:hover:text-white/80"
             >
               {item}
             </a>
@@ -180,14 +180,14 @@ export default function LandingPage() {
         {/* CTA */}
         <Link
           href="/simulation/setup"
-          className="cursor-pointer rounded-full border border-indigo-500/40 bg-[#1E1E1E] px-6 py-2 text-[14px] font-light text-white transition-all hover:bg-indigo-500/10"
+          className="cursor-pointer rounded-full border border-slate-200 group-[.is-scrolled]:border-indigo-500/40 bg-white group-[.is-scrolled]:bg-[#1E1E1E] px-6 py-2 text-[14px] font-semibold text-slate-900 group-[.is-scrolled]:font-light group-[.is-scrolled]:text-white transition-all shadow-sm group-[.is-scrolled]:shadow-none hover:bg-slate-50 group-[.is-scrolled]:hover:bg-indigo-500/10"
         >
           Sign up free
         </Link>
       </ScrollNavbar>
 
       {/* ── HERO (clean centered — exact Conferra style) ── */}
-      <section className="relative px-6 pb-0 pt-14 text-center overflow-hidden">
+      <section className="relative px-6 pb-0 pt-32 md:pt-40 text-center overflow-hidden">
         {/* Dot grid background to allow glass button to refract */}
         <div className="hero-dot-grid pointer-events-none" />
 
