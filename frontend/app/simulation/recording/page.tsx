@@ -44,30 +44,19 @@ function IconLogo({ size = 22, className = "" }: { size?: number; className?: st
   );
 }
 
-function SidebarNavItem({
-  icon,
-  label,
-  active = false,
-  href,
-}: {
-  icon: IconName;
-  label: string;
-  active?: boolean;
-  href?: string;
-}) {
+function SidebarNavItem({ icon, label, active = false, href }: { icon: IconName; label: string; active?: boolean; href?: string }) {
   const content = (
     <div
       title={label}
       className={`flex size-12 cursor-pointer items-center justify-center rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 ${
         active
-          ? "bg-slate-100 text-slate-900 font-bold border border-slate-200/50 shadow-xs"
-          : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+          ? "bg-white/10 text-white font-medium border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+          : "text-white/50 hover:bg-white/5 hover:text-white/80"
       }`}
     >
-      <AppIcon name={icon} className={`size-5 ${active ? "text-slate-900" : ""}`} strokeWidth={active ? 2.6 : 2} />
+      <AppIcon name={icon} className={`size-5 ${active ? "text-white" : ""}`} strokeWidth={active ? 2.2 : 1.8} />
     </div>
   );
-
   if (href) {
     return <Link href={href}>{content}</Link>;
   }
@@ -638,27 +627,26 @@ export default function RecordingPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      {/* ── SIDEBAR ── */}
-      <aside className="flex w-[80px] shrink-0 flex-col items-center justify-between border-r border-slate-200 bg-white py-6">
-        <div className="flex flex-col items-center gap-8">
-          {/* Lumen Brand Logo */}
-          <div className="text-[#1C1C1E]">
-            <IconLogo size={32} />
+      {/* ── SIDEBAR (Floating Conferra Dark Pill Sidebar) ── */}
+      <aside className="relative z-20 flex w-[112px] shrink-0 flex-col items-center justify-between py-6 px-4 bg-slate-50">
+        <div className="flex flex-col items-center justify-between w-full h-full rounded-[24px] border border-white/10 bg-[#0A0D14] py-8 text-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] backdrop-blur-md">
+          {/* Top logo & navigation section */}
+          <div className="flex flex-col items-center gap-10 w-full">
+            <div className="text-white/90 hover:scale-105 transition-transform duration-300">
+              <IconLogo size={28} />
+            </div>
+            <nav className="flex flex-col gap-4">
+              <SidebarNavItem icon="clock" label="History" href="/history" />
+              <SidebarNavItem icon="dashboard" label="Dashboard" href="/dashboard" />
+              <SidebarNavItem icon="eye" label="Simulation" href="/simulation/setup" active />
+              <SidebarNavItem icon="chart" label="Analytics" href="/report-cards" />
+            </nav>
           </div>
-
-          {/* Navigation Items (redesigned icon style) */}
-          <nav className="flex flex-col gap-6">
-            <SidebarNavItem icon="clock" label="History" href="/history" />
-            <SidebarNavItem icon="dashboard" label="Dashboard" href="/dashboard" />
-            <SidebarNavItem icon="eye" label="Simulation" active />
-            <SidebarNavItem icon="user" label="Profile" />
-            <SidebarNavItem icon="chart" label="Analytics" href="/report-cards" />
-          </nav>
-        </div>
-
-        {/* User Profile Avatar */}
-        <div className="size-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-white bg-indigo-600 text-sm shadow-inner">
-          U
+          
+          {/* Bottom profile avatar */}
+          <div className="size-11 overflow-hidden rounded-full border border-white/10 bg-[#1E1E1E] flex items-center justify-center font-normal text-white text-[15px] shadow-md cursor-pointer hover:bg-white/10 transition-colors">
+            U
+          </div>
         </div>
       </aside>
 
