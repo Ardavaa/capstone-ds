@@ -206,7 +206,7 @@ export default function LandingPage() {
 
           {/* Headline */}
           <h1
-            className="text-[56px] font-extrabold leading-[1.08] tracking-[-1.5px] text-[#111111] sm:text-[64px] lg:text-[72px]"
+            className="text-[56px] font-semibold leading-[1.08] tracking-[-1.5px] text-[#2f3137] sm:text-[64px] lg:text-[72px]"
             style={{ fontFamily: "'Manrope', 'Space Grotesk', 'Google Sans', sans-serif" }}
           >
             Practice Interviews.

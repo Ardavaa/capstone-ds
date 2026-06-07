@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 
 // ─── Navbar Scroll Effect ───────────────────────────────────────────────────
 export function ScrollNavbar({ children }: { children: React.ReactNode }) {
@@ -41,7 +42,7 @@ interface RevealProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
-  direction?: "up" | "left" | "right" | "none";
+  direction?: "up" | "down" | "left" | "right" | "none";
 }
 
 export function Reveal({
@@ -50,43 +51,28 @@ export function Reveal({
   delay = 0,
   direction = "up",
 }: RevealProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.12 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const initial = {
-    up: "translateY(48px)",
-    left: "translateX(-48px)",
-    right: "translateX(48px)",
-    none: "none",
-  }[direction];
+  const directionVariants = {
+    up: { y: 48, opacity: 0 },
+    down: { y: -48, opacity: 0 },
+    left: { x: -48, opacity: 0 },
+    right: { x: 48, opacity: 0 },
+    none: { opacity: 0 },
+  };
 
   return (
-    <div
-      ref={ref}
+    <motion.div
       className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "none" : initial,
-        transition: `opacity 0.75s cubic-bezier(0.16,1,0.3,1) ${delay}s, transform 0.75s cubic-bezier(0.16,1,0.3,1) ${delay}s`,
-        willChange: "opacity, transform",
+      initial={directionVariants[direction]}
+      whileInView={{ x: 0, y: 0, opacity: 1 }}
+      viewport={{ once: true, margin: "-10%" }}
+      transition={{
+        duration: 0.8,
+        delay: delay,
+        ease: [0.16, 1, 0.3, 1],
       }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -100,38 +86,41 @@ export function StaggerReveal({
   className?: string;
   staggerMs?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: staggerMs / 1000,
       },
-      { threshold: 0.1 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 40, opacity: 0 },
+    show: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.7,
+        ease: [0.16, 1, 0.3, 1],
+      },
+    },
+  };
 
   return (
-    <div ref={ref} className={className}>
+    <motion.div
+      className={className}
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-10%" }}
+    >
       {children.map((child, i) => (
-        <div
-          key={i}
-          style={{
-            opacity: visible ? 1 : 0,
-            transform: visible ? "none" : "translateY(40px)",
-            transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${(i * staggerMs) / 1000}s, transform 0.7s cubic-bezier(0.16,1,0.3,1) ${(i * staggerMs) / 1000}s`,
-            willChange: "opacity, transform",
-          }}
-        >
+        <motion.div key={i} variants={itemVariants}>
           {child}
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }

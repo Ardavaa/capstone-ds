@@ -1,15 +1,16 @@
 import { Cpu, Lock, Sparkles, Zap } from 'lucide-react'
 import Image from 'next/image'
+import { Reveal, StaggerReveal } from "@/components/ui/scroll-effects"
 
 export function Features() {
     return (
         <section className="overflow-hidden py-16 md:py-32">
             <div className="mx-auto max-w-5xl space-y-8 px-6 md:space-y-12">
-                <div className="relative z-10 max-w-2xl">
+                <Reveal className="relative z-10 max-w-2xl">
                     <h2 className="text-4xl font-semibold lg:text-5xl">Built for AI-driven feedback</h2>
                     <p className="mt-6 text-lg text-slate-500">Empower your preparation with mock interviews that adapt to your needs, powered by an advanced AI Agents interface.</p>
-                </div>
-                <div className="relative -mx-4 rounded-3xl p-3 md:-mx-12 lg:col-span-3">
+                </Reveal>
+                <Reveal delay={0.2} direction="up" className="relative -mx-4 rounded-3xl p-3 md:-mx-12 lg:col-span-3">
                     <div className="[perspective:800px]">
                         <div className="[transform:skewY(-2deg)skewX(-2deg)rotateX(6deg)]">
                             <div 
@@ -32,8 +33,8 @@ export function Features() {
                             </div>
                         </div>
                     </div>
-                </div>
-                <div className="relative mx-auto grid grid-cols-2 gap-x-3 gap-y-6 sm:gap-8 lg:grid-cols-4">
+                </Reveal>
+                <StaggerReveal staggerMs={150} className="relative mx-auto grid grid-cols-2 gap-x-3 gap-y-6 sm:gap-8 lg:grid-cols-4">
                     <div className="space-y-3">
                         <div className="flex items-center gap-2">
                             <Zap className="size-4 text-indigo-500" />
@@ -62,7 +63,7 @@ export function Features() {
                         </div>
                         <p className="text-muted-foreground text-sm text-slate-500">Receive precise tips tailored to your specific answers to improve.</p>
                     </div>
-                </div>
+                </StaggerReveal>
             </div>
         </section>
     )
