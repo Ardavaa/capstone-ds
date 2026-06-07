@@ -26,7 +26,7 @@ const testimonials = [
   },
   {
     name: "M. Hafizh Alkautsar",
-    profession: "Software Engineer Candidate",
+    profession: "Vice Lead Coordinator",
     description: "The per-question analysis showed me exactly where I hesitated and used filler words. Practicing with Lumen gave me the confidence to ace my final rounds.",
     avatar: "/testi-user/hafizh.jfif",
     companyLogo: "/testi-company/ase-lab.png",
