@@ -5,6 +5,7 @@ import { AnimatedStatsSection } from "@/components/ui/animated-stats";
 import { ScrollNavbar, Reveal } from "@/components/ui/scroll-effects";
 import { GlassButton } from "@/components/ui/glass-button";
 import FUITestimonialWithSlide from "@/components/ui/sliding-testimonial";
+import { Features } from "@/components/ui/features-7";
 
 // ─── Icon components ────────────────────────────────────────────────────────
 function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
@@ -315,6 +316,9 @@ export default function LandingPage() {
 
       {/* ── ANIMATED STATS — full-section breathing room ── */}
       <AnimatedStatsSection />
+
+      {/* ── INTEGRATED FEATURES SECTION ── */}
+      <Features />
 
       {/* ── HOW IT WORKS — min-screen ── */}
       <section id="how-it-works" className="flex min-h-screen items-center px-6 py-28">
