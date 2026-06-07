@@ -13,6 +13,7 @@
   --font-display: var(--font-bricolage);
   --animate-marquee: marquee var(--duration) linear infinite;
   --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
+  --animate-x-slider: x-slider 20s linear infinite;
 }
 
 body {
@@ -38,6 +39,11 @@ html {
   to {
     transform: translateX(-100%);
   }
+}
+
+@keyframes x-slider {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(calc(-50% - 1.25rem)); }
 }
 
 @keyframes fade-in-up {

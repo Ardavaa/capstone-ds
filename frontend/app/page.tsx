@@ -4,9 +4,9 @@ import { HorizontalMarquee } from "@/components/ui/marquee";
 import { AnimatedStatsSection } from "@/components/ui/animated-stats";
 import { ScrollNavbar, Reveal } from "@/components/ui/scroll-effects";
 import { GlassButton } from "@/components/ui/glass-button";
+import FUITestimonialWithSlide from "@/components/ui/sliding-testimonial";
 
 // ─── Icon components ────────────────────────────────────────────────────────
-
 function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -445,27 +445,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section className="bg-slate-50/80 px-6 py-28">
-        <div className="mx-auto max-w-5xl">
-          <Reveal className="mb-16 text-center">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-indigo-500">Results</p>
-            <h2 className="text-[48px] font-black leading-tight tracking-[-2px] text-slate-900 lg:text-[56px]">
-              Built for preparation that works.
-            </h2>
-          </Reveal>
-
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              { quote: "Finally a tool that tells me WHY my delivery feels off — not just 'speak more confidently'. The WPM and filler breakdown was eye-opening.", name: "Rizky A.", role: "Software Engineer Candidate", score: 88 },
-              { quote: "I practiced 3 PM interview questions and immediately saw my STAR structure was incomplete. Fixed it before the real interview.", name: "Siti N.", role: "Product Manager Candidate", score: 91 },
-              { quote: "The per-question scoring is what sets this apart. I could see exactly which questions I bombed vs. nailed, not just one average.", name: "Budi H.", role: "Data Analyst Candidate", score: 79 },
-            ].map((t, i) => (
-              <Reveal key={t.name} delay={i * 0.12}>
-                <Testimonial {...t} />
-              </Reveal>
-            ))}
-          </div>
-        </div>
+      <section className="bg-slate-50/80 py-28 overflow-hidden">
+        <FUITestimonialWithSlide />
       </section>
 
       {/* ── DARK CTA — full viewport ── */}
