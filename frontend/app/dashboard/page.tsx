@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore, useState, useEffect } from "react";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -137,6 +137,40 @@ function SidebarNavItem({ icon, label, active = false, href }: { icon: IconName;
 export default function Dashboard() {
   const historySnapshot = useSyncExternalStore(subscribeToStorage, getHistorySnapshot, () => "");
   const sessions = useMemo(() => parseHistorySnapshot(historySnapshot), [historySnapshot]);
+
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const today = new Date().toISOString().split("T")[0];
+      const lastLogin = localStorage.getItem("last_login_date");
+      let currentStreak = parseInt(localStorage.getItem("login_streak") || "0", 10);
+
+      if (!lastLogin) {
+        currentStreak = 1;
+        localStorage.setItem("login_streak", "1");
+        localStorage.setItem("last_login_date", today);
+      } else {
+        const lastDate = new Date(lastLogin);
+        const todayDate = new Date(today);
+        const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          currentStreak += 1;
+          localStorage.setItem("login_streak", String(currentStreak));
+          localStorage.setItem("last_login_date", today);
+        } else if (diffDays > 1) {
+          currentStreak = 1;
+          localStorage.setItem("login_streak", "1");
+          localStorage.setItem("last_login_date", today);
+        } else {
+          if (currentStreak === 0) currentStreak = 1;
+        }
+      }
+      setStreak(currentStreak);
+    }
+  }, []);
 
   const { stats, insights, trends, deltas } = useMemo(() => {
     if (sessions.length === 0) {
@@ -300,25 +334,52 @@ export default function Dashboard() {
                   {insights.message}
                 </p>
 
-                {/* Progress Milestones */}
-                {sessions.length > 0 && (
-                  <div className="flex items-center gap-8 border-t border-white/10 pt-6 w-full max-w-lg">
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Readiness Score</div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-white">{stats.readiness}</span>
-                        <span className="text-sm font-semibold text-slate-500">/100</span>
-                      </div>
+                {/* Daily Streak Feature */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8 border-t border-white/10 pt-6 w-full max-w-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex items-center justify-center size-14 bg-white/5 rounded-2xl border border-white/10 shrink-0">
+                      <img 
+                        src="/images/flame-icon.svg" 
+                        alt="Streak Flame" 
+                        className="size-8 object-contain drop-shadow-[0_0_8px_rgba(236,111,89,0.5)] animate-pulse"
+                      />
                     </div>
-                    <div className="h-10 w-px bg-white/10" />
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Current Standing</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">{insights.percentile}</span>
+                    <div className="flex flex-col">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Login Streak</div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-black text-white">{streak}</span>
+                        <span className="text-sm font-medium text-slate-400">{streak === 1 ? 'Day' : 'Days'}</span>
                       </div>
                     </div>
                   </div>
-                )}
+                  
+                  <div className="hidden sm:block h-10 w-px bg-white/10" />
+                  
+                  <div className="flex flex-col gap-1.5 justify-center">
+                    <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Weekly Progress</div>
+                    <div className="flex gap-2">
+                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
+                        const todayIndex = (new Date().getDay() + 6) % 7; // 0 for Monday, 6 for Sunday
+                        const isActive = idx === todayIndex;
+                        const isPast = idx < todayIndex;
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`flex flex-col items-center justify-center size-8 rounded-lg text-xs font-bold transition-all duration-300 ${
+                              isActive 
+                                ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)] scale-110' 
+                                : isPast
+                                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                                  : 'bg-white/5 text-slate-500 border border-white/5'
+                            }`}
+                          >
+                            {day}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {/* Right: Primary Action Center (Glassmorphism Button) */}
