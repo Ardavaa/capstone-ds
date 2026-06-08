@@ -10,7 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/react": "^3.0.199",
     "@radix-ui/react-slot": "^1.2.5",
+    "ai": "^6.0.197",
     "class-variance-authority": "^0.7.1",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.17.0",
@@ -19,7 +22,8 @@
     "ogl": "^1.0.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
