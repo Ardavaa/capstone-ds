@@ -153,12 +153,14 @@ export type SimulationConfig = {
   categoryLabel: string;
   questionTopic: string;
   questions: string[];
+  persona?: "friendly" | "strict" | "stress";
 };
 
 export const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
   categoryId: "sw-engineer",
   categoryLabel: "SW Engineer",
   questionTopic: "software engineer technical interview debugging system design backend",
+  persona: "friendly",
   questions: [
     "Tell me about a complex technical problem you solved and the trade-offs you considered.",
     "Walk me through how you would debug a slow production API.",

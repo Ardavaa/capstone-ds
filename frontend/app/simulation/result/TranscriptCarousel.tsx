@@ -1,9 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AppIcon from "@/app/components/AppIcon";
 import { askAICoach, type CoachResult } from "@/app/actions";
+
+function HighlightedTranscript({ text }: { text: string }) {
+  const fillerWords = [
+    "umm", "uhh", "um", "uh", "eee", "kayak", "gitu", 
+    "like", "basically", "literally", "actually", "you know"
+  ];
+  
+  const regex = new RegExp(`\\b(${fillerWords.join('|')})\\b`, 'gi');
+  const parts = text.split(regex);
+  const fillerWordsLower = fillerWords.map(w => w.toLowerCase());
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (fillerWordsLower.includes(part.toLowerCase())) {
+          return (
+            <span key={i} className="inline-block px-1.5 mx-[2px] rounded-md bg-rose-100 text-rose-700 font-semibold text-[13px] relative -top-px shadow-sm">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
 
 // ─── Local UI Components ───────────────────────────────────────────────
 
@@ -196,7 +222,7 @@ export function TranscriptCarousel({
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 relative">
             <span className="absolute top-4 left-4 text-4xl text-slate-200 font-serif leading-none select-none">&ldquo;</span>
             <p className="text-[15px] leading-[28px] text-slate-600 font-light italic relative z-10 pl-6">
-              {currentTranscript}
+              <HighlightedTranscript text={currentTranscript} />
             </p>
             
             <div className="mt-6 pt-6 border-t border-slate-200/60 pl-6 flex items-center justify-between">

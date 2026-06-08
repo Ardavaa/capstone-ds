@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import { generateInterviewQuestions } from "@/app/actions";
 
 import {
   clearSessionAnswers,
@@ -119,7 +120,7 @@ const RECORDER_MIME_CANDIDATES = [
   "video/mp4",
 ] as const;
 
-const MIN_ANSWER_SEC = 30;       // minimum before "Next / Finish" unlocks
+const MIN_ANSWER_SEC = 0;       // minimum before "Next / Finish" unlocks
 const MAX_ANSWER_SEC = 3 * 60;   // hard auto-stop per question
 const COUNTDOWN_WARN_SEC = 30;
 const PRE_ROLL_SEC = 5;          // 5-4-3-2-1 before answer starts
@@ -155,6 +156,7 @@ function getCategoryIcon(label: string): IconName {
 
 // ─── Phases ─────────────────────────────────────────────────────────────────
 type Phase =
+  | "generating"      // generating questions via Gemma
   | "camera-init"     // loading camera/mic
   | "countdown"       // 5-4-3-2-1 overlay before answer
   | "answering"       // actively recording this question
@@ -176,9 +178,11 @@ export default function RecordingPage() {
   const detectBusyRef  = useRef(false);
   const lastDetRef     = useRef<FrameDetection | null>(null);
   const paintRef       = useRef<(d: FrameDetection | null) => void>(() => {});
+  const recognitionRef = useRef<any>(null);
+  const liveTranscriptRef = useRef<string>("");
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [phase, setPhase]         = useState<Phase>("camera-init");
+  const [phase, setPhase]         = useState<Phase>("generating");
   const [currentQ, setCurrentQ]   = useState(1);
   const [countdown, setCountdown] = useState(PRE_ROLL_SEC);
   const [elapsed, setElapsed]     = useState(0);
@@ -206,8 +210,56 @@ export default function RecordingPage() {
     () => (snap ? loadSimulationConfig() : DEFAULT_SIMULATION_CONFIG),
     [snap],
   );
-  const questions = config.questions;
-  const questionText = questions[currentQ - 1] ?? questions[0];
+  
+  const [questions, setQuestions] = useState<string[]>([]);
+  const questionText = questions[currentQ - 1] ?? "Loading question...";
+
+  const fetchAttempted = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+    async function getQuestions() {
+      if (fetchAttempted.current) return;
+      fetchAttempted.current = true;
+      try {
+        const generated = await generateInterviewQuestions(config.categoryLabel, config.questionTopic, 3, config.persona || "friendly");
+        if (mounted) {
+          setQuestions(generated);
+          setPhase("camera-init");
+        }
+      } catch (err) {
+        console.error("Failed to generate questions via Gemma, using defaults.", err);
+        if (mounted) {
+          setQuestions(config.questions);
+          setPhase("camera-init");
+        }
+      }
+    }
+    
+    if (phase === "generating") {
+      getQuestions();
+    }
+  }, [config.categoryLabel, config.questionTopic, config.questions, config.persona, phase]);
+
+  // Init Speech Recognition
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = "en-US";
+        recognitionRef.current.onresult = (event: any) => {
+          let finalTranscript = "";
+          for (let i = 0; i < event.results.length; ++i) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+          liveTranscriptRef.current = finalTranscript;
+        };
+      }
+    }
+  }, []);
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const remainingSec   = Math.max(0, MAX_ANSWER_SEC - elapsed);
@@ -379,9 +431,7 @@ export default function RecordingPage() {
           setMediaError("No microphone detected. Allow mic access and reload.");
           return;
         }
-        // Ready — start countdown for Q1
-        setPhase("countdown");
-        setCountdown(PRE_ROLL_SEC);
+        // Removed immediate transition. Handled by a coordinator useEffect now.
       } catch (err) {
         console.error(err);
         setMediaError("Camera/mic access denied. Allow permissions and reload.");
@@ -394,6 +444,14 @@ export default function RecordingPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Coordinate countdown phase ────────────────────────────────────────────
+  useEffect(() => {
+    if (phase === "camera-init" && mediaStream && questions.length > 0) {
+      setPhase("countdown");
+      setCountdown(PRE_ROLL_SEC);
+    }
+  }, [phase, mediaStream, questions]);
 
   const changeDevices = useCallback(async (audioId: string, videoId: string) => {
     try {
@@ -507,6 +565,11 @@ export default function RecordingPage() {
     setElapsed(0);
     setPhase("answering");
     setSaveError(null);
+
+    liveTranscriptRef.current = "";
+    try {
+      recognitionRef.current?.start();
+    } catch(e) {}
   }
 
   // ── Commit current answer and move to next question or done ───────────────
@@ -538,6 +601,34 @@ export default function RecordingPage() {
 
           recorderRef.current = null;
           chunksRef.current = [];
+
+          let finalTranscript = liveTranscriptRef.current;
+          if (finalTranscript.length <= 10) {
+            finalTranscript = "The candidate's response was very short or unclear. Please ask a probing question to get them talking.";
+          }
+
+          if (!isLastQ) {
+            try {
+              const { generateFollowUpQuestion } = await import("@/app/actions");
+              const followUp = await generateFollowUpQuestion(
+                config.categoryLabel, 
+                config.questionTopic, 
+                config.persona || "friendly",
+                qText,
+                finalTranscript
+              );
+              if (followUp) {
+                 setQuestions(prev => {
+                   const newQ = [...prev];
+                   newQ[qIndex] = followUp; 
+                   return newQ;
+                 });
+              }
+            } catch (err) {
+               console.error("Failed to generate follow up", err);
+            }
+          }
+
           setIsSaving(false);
 
           if (isLastQ || qIndex >= questions.length) {
@@ -557,6 +648,7 @@ export default function RecordingPage() {
       if (recorder.state === "recording" || recorder.state === "paused") {
         if (typeof recorder.requestData === "function") recorder.requestData();
         recorder.stop();
+        try { recognitionRef.current?.stop(); } catch(e){}
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -688,12 +780,9 @@ export default function RecordingPage() {
             <div className="flex items-center gap-6 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <AppIcon name="file" className="size-4 text-slate-400" />
-                <span>Question: <strong className="text-slate-800">{currentQ} of {questions.length}</strong></span>
+                <span>Question: <strong className="text-slate-800">{currentQ} of {questions.length || 3}</strong></span>
               </div>
-              <div className="flex items-center gap-2">
-                <AppIcon name="clock" className="size-4 text-slate-400" />
-                <span>Required: <strong className="text-slate-800">{MIN_ANSWER_SEC}s</strong></span>
-              </div>
+
               <div className="flex items-center gap-2">
                 <AppIcon name="target" className="size-4 text-slate-400" />
                 <span>Maximum: <strong className="text-slate-800">{formatTime(MAX_ANSWER_SEC)}</strong></span>
@@ -752,6 +841,26 @@ export default function RecordingPage() {
                   className="pointer-events-none absolute inset-0 z-10"
                   style={{ width: "100%", height: "100%" }}
                 />
+              )}
+
+              {/* Generating Questions loading view */}
+              {phase === "generating" && !mediaError && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm animate-fade-in">
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="relative flex size-20 items-center justify-center rounded-full bg-indigo-500/10 animate-pulse">
+                      <AppIcon name="ai" className="size-8 text-indigo-400" />
+                      <svg className="absolute inset-0 size-full animate-spin text-indigo-500/50" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="80 200" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                      <h3 className="text-xl font-bold tracking-tight text-white">Generating Questions</h3>
+                      <p className="text-sm font-medium text-slate-400 max-w-sm text-center">
+                        Gemma is analyzing the {config.categoryLabel} role and preparing tailored interview questions...
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Countdown loading view */}

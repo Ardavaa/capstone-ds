@@ -80,6 +80,7 @@ export default function SetupPage() {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<CategoryId | null>("sw-engineer");
   const [customTopic, setCustomTopic] = useState("");
+  const [selectedPersona, setSelectedPersona] = useState<"friendly" | "strict" | "stress">("friendly");
 
   const canContinue = selectedId !== null || customTopic.trim().length > 0;
 
@@ -90,6 +91,7 @@ export default function SetupPage() {
         categoryId: "custom",
         categoryLabel: "Custom Topic",
         questionTopic: custom,
+        persona: selectedPersona,
         questions: [
           `Introduce your background for this topic: ${custom}.`,
           "Describe a relevant challenge you have handled and the steps you took.",
@@ -102,12 +104,14 @@ export default function SetupPage() {
     if (!category) {
       return {
         categoryId: "sw-engineer",
+        persona: selectedPersona,
         ...SIMULATION_CATEGORIES["sw-engineer"],
       };
     }
 
     return {
       categoryId: category.id,
+      persona: selectedPersona,
       ...SIMULATION_CATEGORIES[category.id],
     };
   }
@@ -203,6 +207,60 @@ export default function SetupPage() {
               placeholder="e.g., Senior Backend Engineer at a fintech startup..."
               className="w-full border border-[#0a0a0a] bg-[#faf7f2] px-[15px] py-[13px] text-[13px] text-[#0a0a0a] placeholder:text-[#757575] focus:outline-none"
             />
+          </div>
+
+          {/* Persona Selection */}
+          <div className="mt-6 border border-[#0a0a0a] bg-white p-[25px]">
+            <p className="text-[14px] font-bold uppercase tracking-[0.28px] text-[#0a0a0a]">
+              [ Choose Interviewer Persona ]
+            </p>
+            <p className="mb-[15px] mt-1.5 text-[11px] tracking-[0.55px] text-[#bfbfbf]">
+              Select the personality of your AI interviewer. This will affect how questions are asked.
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <button
+                type="button"
+                onClick={() => setSelectedPersona("friendly")}
+                className={`flex flex-col border p-4 text-left transition-colors ${
+                  selectedPersona === "friendly"
+                    ? "border-[#0a0a0a] bg-[#0a0a0a] text-[#faf7f2]"
+                    : "border-[#bfbfbf] bg-transparent text-[#0a0a0a] hover:border-[#0a0a0a]"
+                }`}
+              >
+                <span className="text-[13px] font-bold uppercase">Friendly HR</span>
+                <span className={`mt-1 text-[10px] ${selectedPersona === "friendly" ? "text-white/70" : "text-[#757575]"}`}>
+                  Supportive & relaxed
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPersona("strict")}
+                className={`flex flex-col border p-4 text-left transition-colors ${
+                  selectedPersona === "strict"
+                    ? "border-[#0a0a0a] bg-[#0a0a0a] text-[#faf7f2]"
+                    : "border-[#bfbfbf] bg-transparent text-[#0a0a0a] hover:border-[#0a0a0a]"
+                }`}
+              >
+                <span className="text-[13px] font-bold uppercase">Strict Tech Lead</span>
+                <span className={`mt-1 text-[10px] ${selectedPersona === "strict" ? "text-white/70" : "text-[#757575]"}`}>
+                  Direct & technical
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPersona("stress")}
+                className={`flex flex-col border p-4 text-left transition-colors ${
+                  selectedPersona === "stress"
+                    ? "border-[#0a0a0a] bg-[#0a0a0a] text-[#faf7f2]"
+                    : "border-[#bfbfbf] bg-transparent text-[#0a0a0a] hover:border-[#0a0a0a]"
+                }`}
+              >
+                <span className="text-[13px] font-bold uppercase">Stress Interviewer</span>
+                <span className={`mt-1 text-[10px] ${selectedPersona === "stress" ? "text-white/70" : "text-[#757575]"}`}>
+                  Pressuring & skeptical
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Actions */}
