@@ -40,15 +40,23 @@ const testimonials = [
     companyLogo: "/testi-company/mc-smb.png?v=2",
     logoHeightClass: "h-14",
   },
+  {
+    name: "Nauval Yusriya Athalla",
+    profession: "Data Analyst",
+    description: "Lumen transforms the subjective interview process into objective, measurable data. The quantified metrics on my delivery let me pinpoint exactly what to improve.",
+    avatar: "/testi-user/nauval.jfif",
+    companyLogo: "/testi-company/ojk.png",
+    logoHeightClass: "h-10",
+  },
 ];
 const duplicatedTestimonials = [...testimonials, ...testimonials];
 
 const FUITestimonialWithSlide = () => {
   return (
-    <div className='w-full'>
+    <div className='w-full -mt-16'>
       <div className="w-full mx-auto px-10">
-        <div className='mb-10'>
-          <p className="mt-8 max-w-2xl mx-auto text-center text-[48px] lg:text-[56px] font-medium font-black leading-tight tracking-[-2px] text-slate-900">
+        <div className='mb-16'>
+          <p className="max-w-2xl mx-auto text-center text-[48px] lg:text-[56px] font-black font-semibold leading-tight tracking-[-2px] text-slate-900">
             What our users say
           </p>
           <p className="mt-4 max-w-xl mx-auto text-lg text-center tracking-tight text-slate-500">

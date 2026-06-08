@@ -6,6 +6,7 @@ import { ScrollNavbar, Reveal } from "@/components/ui/scroll-effects";
 import { GlassButton } from "@/components/ui/glass-button";
 import FUITestimonialWithSlide from "@/components/ui/sliding-testimonial";
 import { Features } from "@/components/ui/features-7";
+import ScrollCTA from "@/components/ui/scroll-cta";
 
 // ─── Icon components ────────────────────────────────────────────────────────
 function IconLogo({ size = 22, className = "" }: { size?: number; className?: string }) {
@@ -449,71 +450,50 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section className="bg-slate-50/80 py-28 overflow-hidden">
-        <FUITestimonialWithSlide />
+      <section className="flex min-h-screen w-full items-center justify-center bg-slate-50 py-28 overflow-hidden">
+        <div className="w-full">
+          <FUITestimonialWithSlide />
+        </div>
       </section>
 
-      {/* ── DARK CTA — full viewport ── */}
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-900 px-6 py-24 text-center">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-20 top-0 size-[500px] rounded-full bg-indigo-900/40 blur-[120px]" />
-          <div className="absolute -right-20 bottom-0 size-[500px] rounded-full bg-violet-900/40 blur-[120px]" />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-indigo-950/60 blur-[150px]" />
-        </div>
-        <Reveal className="relative mx-auto max-w-2xl">
-          <p className="mb-4 text-[11px] font-bold uppercase tracking-[3px] text-indigo-400">Get started now</p>
-          <h2 className="text-[56px] font-black leading-tight tracking-[-2px] text-white sm:text-[72px]">
-            Your next interview starts here.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[480px] text-[17px] leading-relaxed text-white/50">
-            Join thousands of candidates who use Lumen to turn interview anxiety into interview confidence.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/simulation/setup"
-              className="flex cursor-pointer items-center gap-2 rounded-2xl bg-indigo-600 px-8 py-4 text-[15px] font-bold text-white shadow-xl shadow-indigo-500/30 transition-all hover:scale-[1.03] hover:bg-indigo-500"
-            >
-              <IconPlay />
-              Start Your Free Simulation
-            </Link>
-            <Link
-              href="/register"
-              className="flex cursor-pointer items-center gap-2 rounded-2xl border border-white/20 px-8 py-4 text-[15px] font-bold text-white/70 transition-all hover:border-white/40 hover:bg-white/5"
-            >
-              Create an Account
-              <IconArrowUpRight />
-            </Link>
-          </div>
-          <p className="mt-6 text-[13px] text-white/30">
-            No credit card required &middot; Takes 5 minutes &middot; Instant results
-          </p>
-        </Reveal>
-      </section>
+      {/* ── GRADIENT BRIDGE ── */}
+      <div className="h-[40vh] w-full bg-gradient-to-b from-slate-50 to-[#0A0D14] -my-[2px] relative z-10 pointer-events-none" />
+
+      {/* ── SCROLL CTA ── */}
+      <ScrollCTA words={[
+          "interview",
+          "presentation",
+          "career",
+          "pitch",
+          "communication",
+          "performance",
+          "future"
+      ]} />
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-slate-100 bg-white px-6 py-16">
+      <footer className="bg-[#0A0D14] px-6 py-16 relative z-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {/* Brand */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center text-indigo-600">
+                <div className="flex items-center justify-center text-white/90">
                   <IconLogo size={24} />
                 </div>
-                <span className="text-[17px] font-bold text-slate-900">Lumen</span>
+                <span className="text-[17px] font-normal tracking-tight text-white">Lumen</span>
               </div>
-              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+              <p className="mt-3 text-[13px] font-light leading-relaxed text-white/90">
                 AI-powered interview performance analysis. Multimodal. Quantified. Actionable.
               </p>
             </div>
 
             {/* Product */}
             <div>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Product</p>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-white/90">Product</p>
               <ul className="flex flex-col gap-2">
                 {["Start Simulation", "Dashboard", "History", "Report Cards"].map((item) => (
                   <li key={item}>
-                    <Link href="/" className="cursor-pointer text-[13px] text-slate-600 transition-colors hover:text-indigo-600">
+                    <Link href="/" className="cursor-pointer text-[13px] font-light text-white/90 transition-colors hover:text-white">
                       {item}
                     </Link>
                   </li>
@@ -523,11 +503,11 @@ export default function LandingPage() {
 
             {/* Technology */}
             <div>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Technology</p>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-white/90">Technology</p>
               <ul className="flex flex-col gap-2">
                 {["Whisper ASR", "YOLOv8", "Wav2Vec2 SER", "IndoBERT", "S-BERT"].map((item) => (
                   <li key={item}>
-                    <span className="text-[13px] text-slate-500">{item}</span>
+                    <span className="text-[13px] font-light text-white/90">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -535,24 +515,15 @@ export default function LandingPage() {
 
             {/* Project */}
             <div>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-slate-400">Project</p>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-white/90">Project</p>
               <ul className="flex flex-col gap-2">
                 {["About", "Methodology", "Capstone Project", "Telkom University"].map((item) => (
                   <li key={item}>
-                    <span className="text-[13px] text-slate-500">{item}</span>
+                    <span className="text-[13px] font-light text-white/90">{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 sm:flex-row">
-            <p className="text-[12px] text-slate-400">
-              © 2026 Lumen · Capstone Project · Telkom University · Kelompok 19
-            </p>
-            <p className="text-[12px] text-slate-400">
-              Built with Next.js · FastAPI · PyTorch
-            </p>
           </div>
         </div>
       </footer>
