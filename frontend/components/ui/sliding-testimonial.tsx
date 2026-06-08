@@ -48,6 +48,14 @@ const testimonials = [
     companyLogo: "/testi-company/ojk.png",
     logoHeightClass: "h-10",
   },
+  {
+    name: "Jewdomelvin",
+    profession: "Gay Player",
+    description: "Practicing with Lumen's simulated pressure feels exactly like clutch moments in high-stakes gaming. It helped me translate quick reflexes into structured, confident responses.",
+    avatar: "/testi-user/Jewdomelvin.jfif",
+    companyLogo: "/testi-company/nothing.png",
+    logoHeightClass: "h-10",
+  },
 ];
 const duplicatedTestimonials = [...testimonials, ...testimonials];
 
