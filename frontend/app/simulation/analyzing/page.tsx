@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 import {
   analyzeRecording,
@@ -129,7 +130,13 @@ export default function AnalyzingPage() {
         setError("No recording found. Please record your interview again.");
         return;
       }
-      await analyzeOne(
+      
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const sessionId = new Date().toISOString().replace(/[:.]/g, "-");
+      const videoPaths: string[] = [];
+      
+      const analyzePromise = analyzeOne(
         recording.blob,
         {
           questionIndex: 1,
@@ -139,13 +146,30 @@ export default function AnalyzingPage() {
           durationSec: recording.meta?.durationSec ?? 0,
           recordedAt: recording.meta?.recordedAt ?? new Date().toISOString(),
         },
-        [recording.blob],
-        [],
+        videoPaths
       );
+      
+      if (user) {
+        const filePath = `${user.id}/${sessionId}_Q1.webm`;
+        const uploadPromise = supabase.storage
+          .from("interview_videos")
+          .upload(filePath, recording.blob, { upsert: true })
+          .then(({ error }) => {
+            if (!error) videoPaths.push(filePath);
+          });
+        await Promise.all([analyzePromise, uploadPromise]);
+      } else {
+        await analyzePromise;
+      }
       return;
     }
 
     setAnswers(sessionAnswers);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const sessionId = new Date().toISOString().replace(/[:.]/g, "-");
+    const videoPaths: string[] = [];
 
     const results: AnalyzeResponse[] = [];
     const total = sessionAnswers.length;
@@ -166,11 +190,25 @@ export default function AnalyzingPage() {
         const config = loadSimulationConfig();
         const qText = answer.questionText.trim() || config.questions[answer.questionIndex - 1] || "";
 
-        const result = await analyzeRecording(blob, {
+        const analyzePromise = analyzeRecording(blob, {
           questionTopic: getQuestionTopic(),
           questionText: qText,
           mimeType: answer.mimeType,
         });
+
+        let uploadPromise = Promise.resolve();
+        if (user) {
+          const filePath = `${user.id}/${sessionId}_Q${answer.questionIndex}.webm`;
+          uploadPromise = supabase.storage
+            .from("interview_videos")
+            .upload(filePath, blob, { upsert: true })
+            .then(({ error }) => {
+              if (!error) videoPaths.push(filePath);
+            });
+        }
+
+        const [result] = await Promise.all([analyzePromise, uploadPromise]);
+        
         results.push(result);
         setProgress(Math.round(((i + 1) / total) * 100));
       } catch (err) {
@@ -188,6 +226,7 @@ export default function AnalyzingPage() {
 
     // Merge and save
     const merged = mergeResults(results);
+    saveSessionToHistory(merged, getQuestionTopic(), videoPaths);
 
     // Update config with the actual questions asked so result page and history are correct
     const config = loadSimulationConfig();
@@ -195,7 +234,6 @@ export default function AnalyzingPage() {
     saveSimulationConfig(config);
 
     saveAnalysisResult(merged);
-    saveSessionToHistory(merged, getQuestionTopic());
     setFinished(true);
     setProgress(100);
     setTimeout(() => router.push("/simulation/result"), 800);
@@ -215,8 +253,7 @@ export default function AnalyzingPage() {
   async function analyzeOne(
     blob: Blob,
     answer: SessionAnswer,
-    _blobs: Blob[],
-    _acc: AnalyzeResponse[],
+    videoUrls: string[] = []
   ) {
     const stepTimer = startStepTimer();
     try {
@@ -228,7 +265,7 @@ export default function AnalyzingPage() {
         mimeType: answer.mimeType,
       });
       saveAnalysisResult(result);
-      saveSessionToHistory(result, getQuestionTopic());
+      saveSessionToHistory(result, getQuestionTopic(), videoUrls);
       clearInterval(stepTimer);
       setActiveStep(BASE_STEPS.length);
       setFinished(true);

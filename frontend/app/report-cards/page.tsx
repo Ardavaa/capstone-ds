@@ -443,7 +443,27 @@ function DeliveryTab({ latest }: { latest: AnalyzeResponse | null }) {
   );
 }
 
-function NonVerbalTab({ latest }: { latest: AnalyzeResponse | null }) {
+function NonVerbalTab({ latest, selectedSession }: { latest: AnalyzeResponse | null, selectedSession: SessionRecord | null }) {
+  const [signedUrls, setSignedUrls] = useState<string[]>([]);
+  
+  useEffect(() => {
+    if (!selectedSession?.videoUrls?.length) {
+      setSignedUrls([]);
+      return;
+    }
+    
+    async function fetchUrls() {
+      const supabase = createClient();
+      const urls: string[] = [];
+      for (const path of selectedSession!.videoUrls!) {
+        const { data } = await supabase.storage.from("interview_videos").createSignedUrl(path, 60 * 60); // 1 hour
+        if (data?.signedUrl) urls.push(data.signedUrl);
+      }
+      setSignedUrls(urls);
+    }
+    fetchUrls().catch(console.error);
+  }, [selectedSession]);
+
   if (!latest) return <EmptyAnalysisPrompt />;
 
   const vm = latest.video_emotion_metrics;
@@ -464,6 +484,22 @@ function NonVerbalTab({ latest }: { latest: AnalyzeResponse | null }) {
 
   return (
     <div className="mt-6 flex flex-col gap-6">
+      
+      {signedUrls.length > 0 && (
+        <div className="border border-[#e8e4dc] bg-white p-6">
+          <h3 className="mb-4 text-[13px] font-bold uppercase text-[#0a0a0a]">
+            [ Video Recording ]
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {signedUrls.map((url, i) => (
+              <div key={i} className="relative aspect-video bg-black overflow-hidden border border-[#0a0a0a]">
+                <video src={url} controls className="w-full h-full object-contain" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="border border-[#e8e4dc] bg-white p-6">
         <h3 className="mb-4 text-[13px] font-bold uppercase text-[#0a0a0a]">
           [ Non-verbal · score {vm.non_verbal_score}/100 ]
@@ -703,7 +739,7 @@ export default function ReportCardsPage() {
         {/* ── Tab content ── */}
         {activeTab === "OVERVIEW"   && <OverviewTab latest={latest ?? null} />}
         {activeTab === "DELIVERY"   && <DeliveryTab latest={latest ?? null} />}
-        {activeTab === "NON-VERBAL" && <NonVerbalTab latest={latest ?? null} />}
+        {activeTab === "NON-VERBAL" && <NonVerbalTab latest={latest ?? null} selectedSession={selectedSession ?? null} />}
         {activeTab === "TRANSCRIPT" && <TranscriptTab latest={latest ?? null} />}
       </main>
     </div>

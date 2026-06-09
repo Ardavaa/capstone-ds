@@ -111,6 +111,7 @@ export type SessionRecord = {
   result: AnalyzeResponse;
   categoryLabel?: string;
   questions?: string[];
+  videoUrls?: string[];
 };
 
 export type ContentMetrics = {
@@ -424,6 +425,7 @@ export function loadAnalysisResult(): AnalyzeResponse | null {
 export function saveSessionToHistory(
   result: AnalyzeResponse,
   questionTopic: string,
+  videoUrls?: string[]
 ): void {
   const config = loadSimulationConfig();
   const record: SessionRecord = {
@@ -433,6 +435,7 @@ export function saveSessionToHistory(
     result,
     categoryLabel: config.categoryLabel,
     questions: config.questions,
+    videoUrls: videoUrls || [],
   };
 
   const existing = loadSessionHistory();
@@ -457,6 +460,7 @@ export async function saveUserHistoryToDB(record: SessionRecord) {
     date: new Date().toISOString(),
     result: record.result as unknown as Record<string, unknown>,
     questions: record.questions,
+    video_urls: record.videoUrls || [],
   });
 }
 
@@ -479,6 +483,7 @@ export async function fetchUserHistoryFromDB(): Promise<SessionRecord[]> {
     result: row.result as AnalyzeResponse,
     categoryLabel: row.category_label,
     questions: row.questions as string[],
+    videoUrls: row.video_urls as string[],
   }));
   
   // Update local storage so synchronous components have the latest data
