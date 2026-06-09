@@ -89,19 +89,21 @@ export function Sidebar() {
           
           {isProfileOpen && (
             <div className="absolute bottom-14 left-0 min-w-[140px] rounded-xl border border-white/10 bg-[#1a1d24] p-1.5 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <form action={logout}>
-                <button 
-                  type="submit"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Log out
-                </button>
-              </form>
+              <button 
+                onClick={async () => {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  await logout();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Log out
+              </button>
             </div>
           )}
         </div>
