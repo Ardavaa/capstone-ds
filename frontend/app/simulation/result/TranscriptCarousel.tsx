@@ -254,20 +254,40 @@ export function TranscriptCarousel({
           {/* AI Results Section */}
           {currentCoachData && (
             <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.2,
+                    delayChildren: 0.1
+                  }
+                }
+              }}
               className="flex flex-col gap-2 mt-2"
             >
-              <RewriteSuggestion 
-                original={currentCoachData.rewrite.originalTextExcerpt} 
-                improved={currentCoachData.rewrite.improvedAnswer} 
-                reasoning={currentCoachData.rewrite.reasoning} 
-              />
-              <CoachingInsights 
-                strengths={currentCoachData.coaching.strengths} 
-                weaknesses={currentCoachData.coaching.weaknesses} 
-                tips={currentCoachData.coaching.tips} 
-              />
+              <motion.div variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
+              }}>
+                <RewriteSuggestion 
+                  original={currentCoachData.rewrite.originalTextExcerpt} 
+                  improved={currentCoachData.rewrite.improvedAnswer} 
+                  reasoning={currentCoachData.rewrite.reasoning} 
+                />
+              </motion.div>
+              <motion.div variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
+              }}>
+                <CoachingInsights 
+                  strengths={currentCoachData.coaching.strengths} 
+                  weaknesses={currentCoachData.coaching.weaknesses} 
+                  tips={currentCoachData.coaching.tips} 
+                />
+              </motion.div>
             </motion.div>
           )}
         </motion.div>
