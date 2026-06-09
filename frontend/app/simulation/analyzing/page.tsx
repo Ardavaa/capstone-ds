@@ -12,6 +12,7 @@ import {
   loadSimulationConfig,
   saveAnalysisResult,
   saveSessionToHistory,
+  saveSimulationConfig,
   type AnalyzeResponse,
   type SessionAnswer,
 } from "@/app/lib/analysis";
@@ -187,6 +188,12 @@ export default function AnalyzingPage() {
 
     // Merge and save
     const merged = mergeResults(results);
+
+    // Update config with the actual questions asked so result page and history are correct
+    const config = loadSimulationConfig();
+    config.questions = sessionAnswers.map(a => a.questionText);
+    saveSimulationConfig(config);
+
     saveAnalysisResult(merged);
     saveSessionToHistory(merged, getQuestionTopic());
     setFinished(true);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AppIcon from "@/app/components/AppIcon";
 
 export function OverallAIInsight({
@@ -10,9 +10,12 @@ export function OverallAIInsight({
   scores: any;
   feedback: any;
 }) {
-  const [streamedText, setStreamedText] = useState("");
+  const [displayedText, setDisplayedText] = useState("");
+  const rawTextRef = useRef("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const streamDoneRef = useRef(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -37,15 +40,20 @@ export function OverallAIInsight({
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
+        setIsLoading(false);
+        setIsTyping(true);
+
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            streamDoneRef.current = true;
+            break;
+          }
           const chunk = decoder.decode(value, { stream: true });
-          setStreamedText((prev) => prev + chunk);
+          rawTextRef.current += chunk;
         }
       } catch (err: any) {
         setError(err.message);
-      } finally {
         setIsLoading(false);
       }
     }
@@ -53,14 +61,39 @@ export function OverallAIInsight({
     fetchStream();
   }, [hasStarted, scores, feedback]);
 
+  // Smooth typewriter effect
+  useEffect(() => {
+    if (!isTyping) return;
+
+    const interval = setInterval(() => {
+      setDisplayedText((prev) => {
+        const raw = rawTextRef.current;
+        if (prev.length < raw.length) {
+          // If we're lagging behind the network chunks a lot, type faster
+          const diff = raw.length - prev.length;
+          const charsToAdd = diff > 20 ? 3 : diff > 10 ? 2 : 1;
+          return raw.substring(0, prev.length + charsToAdd);
+        } else if (streamDoneRef.current) {
+          clearInterval(interval);
+          setIsTyping(false);
+          return prev;
+        }
+        return prev; // Wait for more chunks
+      });
+    }, 15); // Adjust for smooth typing speed
+
+    return () => clearInterval(interval);
+  }, [isTyping]);
+
   const parseRichText = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*)/g);
+    const parts = text.split("**");
     return parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        const word = part.slice(2, -2);
+      // Odd indices are inside the bold tags
+      if (i % 2 === 1) {
+        if (!part) return null; // prevent empty styled blocks
         return (
-          <span key={i} className="font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100/50 shadow-sm mx-0.5 inline-block">
-            {word}
+          <span key={i} className="font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100/50 shadow-sm mx-0.5 inline-block transition-all duration-200">
+            {part}
           </span>
         );
       }
@@ -83,15 +116,16 @@ export function OverallAIInsight({
           <div className="text-[13px] text-rose-500 font-medium">Failed to load AI evaluation: {error}</div>
         )}
 
-        {isLoading && !streamedText && !error ? (
+        {isLoading && !error ? (
           <div className="flex flex-col gap-3 w-full animate-pulse mt-2">
             <div className="h-3 bg-slate-100 rounded-full w-full"></div>
             <div className="h-3 bg-slate-100 rounded-full w-5/6"></div>
             <div className="h-3 bg-slate-100 rounded-full w-4/6"></div>
           </div>
         ) : (
-          <p className="text-[14px] leading-[28px] text-slate-600 font-light transition-opacity duration-300">
-            {parseRichText(streamedText || "Waiting for evaluation...")}
+          <p className="text-[14px] leading-[28px] text-slate-600 font-light whitespace-pre-wrap transition-opacity duration-300">
+            {parseRichText(displayedText || (isTyping ? "" : "Waiting for evaluation..."))}
+            {isTyping && <span className="inline-block w-1.5 h-4 ml-1 bg-indigo-400 animate-pulse align-middle" />}
           </p>
         )}
       </div>

@@ -453,6 +453,14 @@ export function loadSessionHistory(): SessionRecord[] {
 export function selectSession(record: SessionRecord): void {
   localStorage.setItem(STORAGE_KEYS.selectedSessionId, record.id);
   saveAnalysisResult(record.result);
+  
+  // Restore simulation config so that report cards and result pages show the correct questions
+  saveSimulationConfig({
+    categoryId: "custom",
+    categoryLabel: record.categoryLabel ?? "Custom Topic",
+    questionTopic: record.questionTopic,
+    questions: record.questions ?? [],
+  });
 }
 
 export function loadSelectedSession(sessionId?: string | null): SessionRecord | null {
