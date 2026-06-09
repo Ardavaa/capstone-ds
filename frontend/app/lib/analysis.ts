@@ -93,6 +93,8 @@ export type AnalyzeResponse = {
     content: string;
     delivery: string;
     non_verbal: string;
+    overall_insight?: string;
+    coach_data?: Record<number, any>;
   };
   file_name: string;
   file_size_bytes: number;

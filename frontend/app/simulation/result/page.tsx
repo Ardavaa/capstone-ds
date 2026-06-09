@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useSyncExternalStore } from "react";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import { createClient } from "@/utils/supabase/client";
 import { RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
 import Aurora from "@/components/ui/Aurora";
 import BorderGlow from "@/components/ui/BorderGlow";
@@ -14,6 +15,8 @@ import {
   DEFAULT_SIMULATION_CONFIG,
   formatDuration,
   loadAnalysisResult,
+  saveAnalysisResult,
+  loadSessionHistory,
   loadSimulationConfig,
   performanceLabel,
   STORAGE_KEYS,
@@ -207,6 +210,64 @@ export default function ResultPage() {
     [resultSnapshot],
   );
 
+  const handleInsightComplete = async (insight: string) => {
+    if (!result) return;
+    
+    // Update local snapshot immutably
+    const updatedResult = JSON.parse(JSON.stringify(result));
+    updatedResult.feedback.overall_insight = insight;
+    saveAnalysisResult(updatedResult);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Update history array (most recent match)
+    const history = loadSessionHistory();
+    const latestSession = history[0];
+    if (latestSession && latestSession.result.final_score === result.final_score) {
+      latestSession.result.feedback.overall_insight = insight;
+      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
+
+      // Persist to DB
+      await supabase
+        .from("user_history")
+        .update({ result: latestSession.result as any })
+        .eq("session_id", latestSession.id)
+        .eq("user_id", user.id);
+    }
+  };
+
+  const handleCoachComplete = async (index: number, coachResult: any) => {
+    if (!result) return;
+    
+    // Update local snapshot immutably
+    const updatedResult = JSON.parse(JSON.stringify(result));
+    if (!updatedResult.feedback.coach_data) updatedResult.feedback.coach_data = {};
+    updatedResult.feedback.coach_data[index] = coachResult;
+    saveAnalysisResult(updatedResult);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Update history array (most recent match)
+    const history = loadSessionHistory();
+    const latestSession = history[0];
+    if (latestSession && latestSession.result.final_score === result.final_score) {
+      if (!latestSession.result.feedback.coach_data) latestSession.result.feedback.coach_data = {};
+      latestSession.result.feedback.coach_data[index] = coachResult;
+      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
+
+      // Persist to DB
+      await supabase
+        .from("user_history")
+        .update({ result: latestSession.result as any })
+        .eq("session_id", latestSession.id)
+        .eq("user_id", user.id);
+    }
+  };
+
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -359,6 +420,8 @@ export default function ResultPage() {
             nonVerbal: result.non_verbal_score
           }}
           feedback={result.feedback}
+          cachedInsight={result.feedback.overall_insight}
+          onComplete={handleInsightComplete}
         />
 
         {/* Transcript Box */}
@@ -394,6 +457,8 @@ export default function ResultPage() {
                     deliveryScore: result.delivery_score,
                     nonVerbalScore: result.non_verbal_score
                   }}
+                  cachedCoachData={result.feedback.coach_data}
+                  onCoachComplete={handleCoachComplete}
                 />
               );
             })()}

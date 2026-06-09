@@ -6,9 +6,13 @@ import AppIcon from "@/app/components/AppIcon";
 export function OverallAIInsight({
   scores,
   feedback,
+  cachedInsight,
+  onComplete,
 }: {
   scores: any;
   feedback: any;
+  cachedInsight?: string;
+  onComplete?: (insight: string) => void;
 }) {
   const [displayedText, setDisplayedText] = useState("");
   const rawTextRef = useRef("");
@@ -21,6 +25,12 @@ export function OverallAIInsight({
   useEffect(() => {
     if (hasStarted) return;
     setHasStarted(true);
+
+    if (cachedInsight) {
+      setDisplayedText(cachedInsight);
+      return;
+    }
+
     setIsLoading(true);
 
     async function fetchStream() {
@@ -47,6 +57,7 @@ export function OverallAIInsight({
           const { done, value } = await reader.read();
           if (done) {
             streamDoneRef.current = true;
+            if (onComplete) onComplete(rawTextRef.current);
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
@@ -59,7 +70,7 @@ export function OverallAIInsight({
     }
 
     fetchStream();
-  }, [hasStarted, scores, feedback]);
+  }, [hasStarted, scores, feedback, cachedInsight, onComplete]);
 
   // Smooth typewriter effect
   useEffect(() => {

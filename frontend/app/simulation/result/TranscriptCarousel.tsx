@@ -116,6 +116,8 @@ export function TranscriptCarousel({
   questions,
   transcripts,
   context,
+  cachedCoachData,
+  onCoachComplete,
 }: {
   questions: string[];
   transcripts: string[];
@@ -125,10 +127,16 @@ export function TranscriptCarousel({
     deliveryScore: number;
     nonVerbalScore: number;
   };
+  cachedCoachData?: Record<number, any>;
+  onCoachComplete?: (index: number, result: any) => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const [coachDataMap, setCoachDataMap] = useState<Record<number, CoachResult>>({});
+  
+  // Initialize state with cached data if available
+  const [coachDataMap, setCoachDataMap] = useState<Record<number, CoachResult>>(
+    cachedCoachData || {}
+  );
   const [loadingMap, setLoadingMap] = useState<Record<number, boolean>>({});
   const [errorMap, setErrorMap] = useState<Record<number, string>>({});
 
@@ -147,11 +155,17 @@ export function TranscriptCarousel({
   };
 
   const handleAskCoach = async () => {
+    // If we already have the data locally or cached, do nothing
+    if (coachDataMap[currentIndex]) return;
+
     setLoadingMap(prev => ({ ...prev, [currentIndex]: true }));
     setErrorMap(prev => ({ ...prev, [currentIndex]: "" }));
     try {
       const response = await askAICoach(questions[currentIndex], transcripts[currentIndex], context);
       setCoachDataMap(prev => ({ ...prev, [currentIndex]: response }));
+      if (onCoachComplete) {
+        onCoachComplete(currentIndex, response);
+      }
     } catch (error) {
       setErrorMap(prev => ({ ...prev, [currentIndex]: "Failed to load AI Coach response. Please ensure your API key is correct." }));
     } finally {
