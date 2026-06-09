@@ -181,7 +181,7 @@ export default function LandingPage() {
 
         {/* CTA */}
         <Link
-          href="/simulation/setup"
+          href="/register"
           className="cursor-pointer rounded-full border border-slate-200 group-[.is-scrolled]:border-indigo-500/40 bg-white group-[.is-scrolled]:bg-[#1E1E1E] px-6 py-2 text-[14px] font-semibold text-slate-900 group-[.is-scrolled]:font-light group-[.is-scrolled]:text-white transition-all shadow-sm group-[.is-scrolled]:shadow-none hover:bg-slate-50 group-[.is-scrolled]:hover:bg-indigo-500/10"
         >
           Sign up free
@@ -223,7 +223,7 @@ export default function LandingPage() {
 
           {/* CTAs */}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/simulation/setup">
+            <Link href="/register">
               <GlassButton size="default" contentClassName="flex items-center gap-2.5 text-[15px]">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                   <path d="M23 7l-7 5 7 5V7z" />
@@ -438,7 +438,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/simulation/setup"
+                href="/register"
                 className="mt-10 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-7 py-4 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500"
               >
                 Try it now — it&apos;s free

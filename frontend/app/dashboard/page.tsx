@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useSyncExternalStore, useState, useEffect } from "react";
+import { logout } from "@/app/auth/actions";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -139,6 +140,7 @@ export default function Dashboard() {
   const sessions = useMemo(() => parseHistorySnapshot(historySnapshot), [historySnapshot]);
 
   const [streak, setStreak] = useState(0);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -284,9 +286,33 @@ export default function Dashboard() {
             </nav>
           </div>
           
-          {/* Bottom profile avatar */}
-          <div className="size-11 overflow-hidden rounded-full border border-white/10 bg-[#1E1E1E] flex items-center justify-center font-normal text-white text-[15px] shadow-md cursor-pointer hover:bg-white/10 transition-colors">
-            U
+          {/* Bottom profile & Logout */}
+          <div className="relative flex flex-col items-center">
+            <button 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="size-11 overflow-hidden rounded-full border border-white/10 bg-[#1E1E1E] flex items-center justify-center font-normal text-white text-[15px] shadow-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            >
+              U
+            </button>
+            
+            {/* Popover */}
+            {isProfileOpen && (
+              <div className="absolute bottom-14 left-0 min-w-[140px] rounded-xl border border-white/10 bg-[#1a1d24] p-1.5 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <form action={logout}>
+                  <button 
+                    type="submit"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Log out
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </aside>
