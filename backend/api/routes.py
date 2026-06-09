@@ -8,8 +8,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from anyio import to_thread
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+import httpx
 
 import time
 
@@ -148,6 +149,12 @@ class AnalyzeResponse(BaseModel):
     feedback: dict[str, str]
     file_name: str
     file_size_bytes: int
+
+
+class AnalyzeAsyncResponse(BaseModel):
+    """Response returned immediately when a media file is queued for analysis."""
+    status: str
+    job_id: str
 
 
 @dataclass
@@ -417,6 +424,155 @@ def _process_interview(
         video_emotion=video_emotion,
         fusion=fusion,
     )
+
+
+async def _process_interview_async(
+    contents: bytes,
+    suffix: str,
+    question_text: str,
+    question_topic: str,
+    webhook_url: str,
+    job_id: str,
+    file_name: str,
+    file_size_bytes: int,
+) -> None:
+    """Background task to run the heavy ML pipeline and trigger a webhook."""
+    log.info("async_analyze: starting background task for job_id=%r", job_id)
+    t_start = time.monotonic()
+    
+    try:
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            upload_path = temp_path / f"interview-upload{suffix}"
+            audio_path = temp_path / "interview-audio.wav"
+            upload_path.write_bytes(contents)
+
+            result = await to_thread.run_sync(
+                _process_interview,
+                upload_path,
+                audio_path,
+                question_text,
+                question_topic,
+            )
+            
+        elapsed_s = time.monotonic() - t_start
+        delivery = result.delivery
+        emotion = result.emotion
+        video_emotion = result.video_emotion
+        fusion = result.fusion
+
+        response_data = AnalyzeResponse(
+            final_score=fusion.final_score,
+            content_score=fusion.content_score,
+            delivery_score=fusion.delivery_score,
+            non_verbal_score=fusion.non_verbal_score,
+            transcription=result.transcription,
+            content_metrics=ContentMetrics(
+                semantic_score=result.content.semantic_score,
+                rubric_score=result.content.rubric_score,
+                completeness_score=result.content.completeness_score,
+                cosine_similarity=result.content.cosine_similarity,
+                cross_encoder_score=result.content.cross_encoder_score,
+                question_text=result.content.question_used,
+                behavioral_question=result.content.behavioral_question,
+            ),
+            delivery_metrics=DeliveryMetrics(
+                wpm=delivery.wpm,
+                filler_count=delivery.filler_count,
+                filler_rate=delivery.filler_rate,
+                avg_pause_sec=delivery.avg_pause_sec,
+                longest_silence_sec=delivery.longest_silence_sec,
+                duration_sec=delivery.duration_sec,
+                filler_words_found=delivery.filler_words_found,
+            ),
+            emotion_metrics=EmotionMetrics(
+                dominant_emotion=emotion.dominant_emotion,
+                emotion_distribution=emotion.emotion_distribution,
+                stability_score=emotion.stability_score,
+                nervous_rate=emotion.nervous_rate,
+                emotion_score=emotion.emotion_score,
+                chunks_analyzed=emotion.chunks_analyzed,
+            ),
+            video_emotion_metrics=VideoEmotionMetrics(
+                dominant_emotion=video_emotion.dominant_emotion,
+                emotion_distribution=video_emotion.emotion_distribution,
+                stability_score=video_emotion.stability_score,
+                nervous_rate=video_emotion.nervous_rate,
+                non_verbal_score=video_emotion.non_verbal_score,
+                frames_analyzed=video_emotion.frames_analyzed,
+                frames_sampled=video_emotion.frames_sampled,
+            ),
+            feedback=fusion.feedback,
+            file_name=file_name,
+            file_size_bytes=file_size_bytes,
+        )
+
+        log.info("async_analyze: pipeline complete job_id=%r elapsed=%.1fs. sending webhook...", job_id, elapsed_s)
+        
+        async with httpx.AsyncClient() as client:
+            webhook_payload = {
+                "job_id": job_id,
+                "status": "completed",
+                "result": response_data.model_dump()
+            }
+            res = await client.post(webhook_url, json=webhook_payload, timeout=15.0)
+            res.raise_for_status()
+            log.info("async_analyze: webhook sent successfully for job_id=%r", job_id)
+
+    except Exception as exc:
+        log.error("async_analyze: background task failed for job_id=%r — %s", job_id, exc, exc_info=True)
+        try:
+            async with httpx.AsyncClient() as client:
+                webhook_payload = {
+                    "job_id": job_id,
+                    "status": "error",
+                    "error": str(exc)
+                }
+                await client.post(webhook_url, json=webhook_payload, timeout=10.0)
+        except Exception as inner_exc:
+            log.error("async_analyze: failed to send error webhook for job_id=%r — %s", job_id, inner_exc)
+
+
+@router.post("/api/analyze-async", response_model=AnalyzeAsyncResponse)
+async def analyze_interview_async(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    question_text: str = Form(default=""),
+    question_topic: str = Form(default=""),
+    webhook_url: str = Form(...),
+    job_id: str = Form(...),
+) -> AnalyzeAsyncResponse:
+    """Queue media for background analysis and return immediately."""
+    log.info(
+        "analyze_async: upload received  job_id=%r  filename=%r  webhook_url=%r",
+        job_id,
+        file.filename,
+        webhook_url,
+    )
+
+    try:
+        contents = await file.read()
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail="Unable to read the uploaded file.") from exc
+
+    try:
+        upload = validate_media_upload(file.filename, file.content_type, contents)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    background_tasks.add_task(
+        _process_interview_async,
+        contents=contents,
+        suffix=upload.suffix,
+        question_text=question_text,
+        question_topic=question_topic,
+        webhook_url=webhook_url,
+        job_id=job_id,
+        file_name=file.filename or "uploaded-media",
+        file_size_bytes=upload.size_bytes,
+    )
+
+    return AnalyzeAsyncResponse(status="queued", job_id=job_id)
 
 
 # ─── Preflight model-load checks ────────────────────────────────────────────

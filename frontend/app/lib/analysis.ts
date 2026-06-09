@@ -583,27 +583,110 @@ export async function analyzeRecording(
   const mimeType = resolveRecordingMimeType(file.type, options.mimeType);
   const uploadBlob = file.type ? file : new Blob([file], { type: mimeType });
   const form = new FormData();
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+  if (user) {
+    // Create temporary row to track the async job
+    await supabase.from("user_history").insert({
+      user_id: user.id,
+      session_id: jobId,
+      question_topic: options.questionTopic,
+      category_label: "Temp Job",
+      date: new Date().toISOString(),
+      result: null, // PENDING
+      questions: [options.questionText],
+      video_urls: [],
+    });
+  }
+
   form.append("file", uploadBlob, recordingUploadFilename(mimeType));
   form.append("question_text", options.questionText.trim());
   form.append("question_topic", options.questionTopic.trim());
+  form.append("job_id", jobId);
+  form.append("webhook_url", `${window.location.origin}/api/webhooks/analyze`);
 
-  const response = await fetch(`${API_BASE}/api/analyze`, {
+  const response = await fetch(`${API_BASE}/api/analyze-async`, {
     method: "POST",
     body: form,
   });
 
   if (!response.ok) {
-    let detail = `Analysis failed (${response.status}).`;
+    let detail = `Async Analysis failed (${response.status}).`;
     try {
       const body = (await response.json()) as { detail?: string };
       if (body.detail) detail = body.detail;
     } catch {
       /* ignore parse errors */
     }
+    if (user) await supabase.from("user_history").delete().eq("session_id", jobId);
     throw new Error(detail);
   }
 
-  return (await response.json()) as AnalyzeResponse;
+  if (!user) {
+    // If not logged in, we can't use webhooks safely without RLS issues, so fallback to sync if possible.
+    // However, our backend now only does async on this endpoint.
+    // In our app, users must be logged in to do simulations.
+    throw new Error("Must be logged in to process interview.");
+  }
+
+  // Wait for webhook to update the row
+  return new Promise((resolve, reject) => {
+    let isDone = false;
+
+    const cleanup = async () => {
+      isDone = true;
+      channel.unsubscribe();
+      clearInterval(interval);
+      await supabase.from("user_history").delete().eq("session_id", jobId);
+    };
+
+    const channel = supabase
+      .channel(`realtime_${jobId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "user_history",
+          filter: `session_id=eq.${jobId}`,
+        },
+        async (payload) => {
+          if (isDone) return;
+          const updatedRow = payload.new;
+          if (updatedRow.result) {
+            await cleanup();
+            if (updatedRow.result.is_error) {
+              reject(new Error(updatedRow.result.message || "Analysis failed"));
+            } else {
+              resolve(updatedRow.result as AnalyzeResponse);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Polling fallback every 3 seconds
+    const interval = setInterval(async () => {
+      if (isDone) return;
+      const { data } = await supabase
+        .from("user_history")
+        .select("result")
+        .eq("session_id", jobId)
+        .single();
+        
+      if (data && data.result) {
+        await cleanup();
+        if ((data.result as any).is_error) {
+          reject(new Error((data.result as any).message || "Analysis failed"));
+        } else {
+          resolve(data.result as AnalyzeResponse);
+        }
+      }
+    }, 3000);
+  });
 }
 
 export function performanceLabel(score: number): string {
