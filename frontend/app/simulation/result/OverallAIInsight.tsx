@@ -9,14 +9,14 @@ export function OverallAIInsight({
   cachedInsight,
   onComplete,
 }: {
-  scores: any;
-  feedback: any;
+  scores: { final: number; content: number; delivery: number; nonVerbal: number };
+  feedback: Record<string, unknown>;
   cachedInsight?: string;
   onComplete?: (insight: string) => void;
 }) {
-  const [displayedText, setDisplayedText] = useState("");
+  const [displayedText, setDisplayedText] = useState(cachedInsight || "");
   const rawTextRef = useRef("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!cachedInsight);
   const [isTyping, setIsTyping] = useState(false);
   const hasStartedRef = useRef(false);
   const streamDoneRef = useRef(false);
@@ -27,11 +27,9 @@ export function OverallAIInsight({
     hasStartedRef.current = true;
 
     if (cachedInsight) {
-      setDisplayedText(cachedInsight);
       return;
     }
 
-    setIsLoading(true);
 
     async function fetchStream() {
       try {
@@ -63,8 +61,8 @@ export function OverallAIInsight({
           const chunk = decoder.decode(value, { stream: true });
           rawTextRef.current += chunk;
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
         setIsLoading(false);
       }
     }

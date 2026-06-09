@@ -9,7 +9,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
 import { Sidebar } from "@/app/components/Sidebar";
 import { generateInterviewQuestions } from "@/app/actions";
@@ -92,7 +91,6 @@ const RECORDER_MIME_CANDIDATES = [
 
 const MIN_ANSWER_SEC = 0;       // minimum before "Next / Finish" unlocks
 const MAX_ANSWER_SEC = 3 * 60;   // hard auto-stop per question
-const COUNTDOWN_WARN_SEC = 30;
 const PRE_ROLL_SEC = 5;          // 5-4-3-2-1 before answer starts
 
 function pickRecorderMimeType(): string {
@@ -148,6 +146,7 @@ export default function RecordingPage() {
   const detectBusyRef  = useRef(false);
   const lastDetRef     = useRef<FrameDetection | null>(null);
   const paintRef       = useRef<(d: FrameDetection | null) => void>(() => {});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const liveTranscriptRef = useRef<string>("");
 
@@ -160,10 +159,9 @@ export default function RecordingPage() {
   const [cameraOn, setCameraOn]   = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [saveError, setSaveError]   = useState<string | null>(null);
-  const [liveEmotion, setLiveEmotion] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<number>(16 / 9);
   const [isSaving, setIsSaving]     = useState(false);
   const [audioLevels, setAudioLevels] = useState<number[]>(new Array(16).fill(6));
+  const [liveEmotion, setLiveEmotion] = useState<string | null>(null);
 
   // Device settings states
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -209,17 +207,20 @@ export default function RecordingPage() {
     if (phase === "generating") {
       getQuestions();
     }
+    return () => { mounted = false; };
   }, [config.categoryLabel, config.questionTopic, config.questions, config.persona, phase]);
 
   // Init Speech Recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = "en-US";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recognitionRef.current.onresult = (event: any) => {
           let finalTranscript = "";
           for (let i = 0; i < event.results.length; ++i) {
@@ -232,8 +233,6 @@ export default function RecordingPage() {
   }, []);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const remainingSec   = Math.max(0, MAX_ANSWER_SEC - elapsed);
-  const countdownWarn  = remainingSec > 0 && remainingSec <= COUNTDOWN_WARN_SEC;
   const canAdvance     = elapsed >= MIN_ANSWER_SEC && phase === "answering";
   const isLastQ        = currentQ === questions.length;
 
@@ -258,6 +257,7 @@ export default function RecordingPage() {
     let animationFrameId: number;
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       audioContext = new AudioCtx();
       analyser = audioContext.createAnalyser();
@@ -382,7 +382,6 @@ export default function RecordingPage() {
     }
     const id = setInterval(poll, POLL_MS);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, cameraOn]);
 
   // ── Start camera ──────────────────────────────────────────────────────────
@@ -412,14 +411,15 @@ export default function RecordingPage() {
       recorderRef.current?.stop();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Coordinate countdown phase ────────────────────────────────────────────
   useEffect(() => {
     if (phase === "camera-init" && mediaStream && questions.length > 0) {
-      setPhase("countdown");
-      setCountdown(PRE_ROLL_SEC);
+      setTimeout(() => {
+        setPhase("countdown");
+        setCountdown(PRE_ROLL_SEC);
+      }, 0);
     }
   }, [phase, mediaStream, questions]);
 
@@ -484,40 +484,8 @@ export default function RecordingPage() {
     }
   }, [showSettings, selectedAudioId, selectedVideoId]);
 
-  // ── Countdown tick ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "countdown") return;
-    if (countdown <= 0) {
-      startAnswering();
-      return;
-    }
-    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, countdown]);
-
-  // ── Answer timer ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "answering" || isSaving) return;
-    const id = setInterval(() => {
-      setElapsed((s) => {
-        if (s >= MAX_ANSWER_SEC) return s;
-        return s + 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [phase, isSaving]);
-
-  // ── Auto-stop when max time reached ───────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "answering" || isSaving) return;
-    if (elapsed < MAX_ANSWER_SEC) return;
-    void commitAnswer();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsed, phase, isSaving]);
-
   // ── Start answering for current question ──────────────────────────────────
-  function startAnswering() {
+  const startAnswering = useCallback(() => {
     const stream = streamRef.current;
     if (!stream) return;
 
@@ -538,9 +506,10 @@ export default function RecordingPage() {
 
     liveTranscriptRef.current = "";
     try {
-      recognitionRef.current?.start();
-    } catch(e) {}
-  }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (recognitionRef.current as any)?.start();
+    } catch {}
+  }, []);
 
   // ── Commit current answer and move to next question or done ───────────────
   const commitAnswer = useCallback(async () => {
@@ -618,11 +587,44 @@ export default function RecordingPage() {
       if (recorder.state === "recording" || recorder.state === "paused") {
         if (typeof recorder.requestData === "function") recorder.requestData();
         recorder.stop();
-        try { recognitionRef.current?.stop(); } catch(e){}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        try { (recognitionRef.current as any)?.stop(); } catch {}
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSaving, currentQ, elapsed, questions, isLastQ]);
+
+  // ── Countdown tick ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "countdown") return;
+    if (countdown <= 0) {
+      startAnswering();
+      return;
+    }
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [phase, countdown]);
+
+  // ── Answer timer ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "answering" || isSaving) return;
+    const id = setInterval(() => {
+      setElapsed((s) => {
+        if (s >= MAX_ANSWER_SEC) return s;
+        return s + 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [phase, isSaving]);
+
+  // ── Auto-stop when max time reached ───────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "answering" || isSaving) return;
+    if (elapsed < MAX_ANSWER_SEC) return;
+    void commitAnswer();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, phase, isSaving]);
+
 
   // ── Phase: done → navigate to analyzing ───────────────────────────────────
   useEffect(() => {
@@ -633,8 +635,7 @@ export default function RecordingPage() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function handleLoadedMetadata() {
-    const v = videoRef.current;
-    if (v?.videoWidth && v?.videoHeight) setAspectRatio(v.videoWidth / v.videoHeight);
+    // Intentionally empty or logic that doesn't rely on missing states
   }
 
   function toggleMic() {
@@ -652,36 +653,6 @@ export default function RecordingPage() {
     return `${mm}:${ss}`;
   }
 
-  // ── Progress dots ─────────────────────────────────────────────────────────
-  function ProgressDots() {
-    return (
-      <div className="flex items-center gap-2">
-        {questions.map((_, i) => {
-          const qi = i + 1;
-          const done = phase === "answering" ? qi < currentQ : qi <= currentQ;
-          const active = qi === currentQ && phase === "answering";
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <div
-                className={`flex size-6 items-center justify-center rounded-full text-[10px] font-bold transition-all duration-300 ${
-                  done
-                    ? "bg-[#22C55E] text-white"
-                    : active
-                    ? "bg-white text-[#0F172A] ring-2 ring-white/40 ring-offset-2 ring-offset-[#0F172A]"
-                    : "border border-white/20 text-white/30"
-                }`}
-              >
-                {done ? <IconCheck /> : qi}
-              </div>
-              {i < questions.length - 1 && (
-                <div className={`h-px w-6 transition-colors duration-500 ${done ? "bg-[#22C55E]" : "bg-white/10"}`} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
 
   // ══════════════════════════════════════════════════════════════════
   // RENDER

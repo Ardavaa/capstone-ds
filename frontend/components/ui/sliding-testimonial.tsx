@@ -37,7 +37,7 @@ const testimonials = [
     profession: "Director of Marketing Communication",
     description: "Lumen's AI-driven feedback on speech clarity and delivery pacing has been instrumental in training our communication teams to pitch effectively and confidently.",
     avatar: "/testi-user/dian.png",
-    companyLogo: "/testi-company/mc-smb.png?v=2",
+    companyLogo: "/testi-company/mc-smb.png",
     logoHeightClass: "h-14",
   },
   {
@@ -93,9 +93,11 @@ const FUITestimonialWithSlide = () => {
                     </div>
                     <div className='w-[1px] bg-slate-100' />
                     <div className='flex-1 flex justify-center items-center p-2'>
-                      <img 
+                      <Image 
                         src={testimonial.companyLogo} 
                         alt='company logo' 
+                        width={120}
+                        height={60}
                         className={`object-contain w-auto opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all ${testimonial.logoHeightClass || 'h-8'} ${testimonial.invertLogo ? 'invert' : ''}`} 
                       />
                     </div>

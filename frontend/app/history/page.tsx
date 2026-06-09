@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, useEffect } from "react";
 
-import AppIcon, { type IconName } from "@/app/components/AppIcon";
-import { createClient } from "@/utils/supabase/client";
+import AppIcon from "@/app/components/AppIcon";
 import {
   formatDuration,
   selectSession,
@@ -68,8 +67,6 @@ function ScoreBar({ score }: { score: number }) {
 
 export default function HistoryPage() {
   const [search, setSearch] = useState("");
-  const [userName, setUserName] = useState("Local user");
-  const [userInitials, setUserInitials] = useState("U");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   async function handleDelete(record: SessionRecord) {

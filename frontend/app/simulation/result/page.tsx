@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useSyncExternalStore } from "react";
 
-import AppIcon, { type IconName } from "@/app/components/AppIcon";
+
 import { Sidebar } from "@/app/components/Sidebar";
 import { createClient } from "@/utils/supabase/client";
 import { RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
@@ -11,6 +11,7 @@ import Aurora from "@/components/ui/Aurora";
 import BorderGlow from "@/components/ui/BorderGlow";
 import { TranscriptCarousel } from "./TranscriptCarousel";
 import { OverallAIInsight } from "./OverallAIInsight";
+import { type CoachResult } from "@/app/actions";
 import {
   type AnalyzeResponse,
   DEFAULT_SIMULATION_CONFIG,
@@ -202,13 +203,13 @@ export default function ResultPage() {
       // Persist to DB
       await supabase
         .from("user_history")
-        .update({ result: latestSession.result as any })
+        .update({ result: latestSession.result as unknown as Record<string, unknown> })
         .eq("session_id", latestSession.id)
         .eq("user_id", user.id);
     }
   };
 
-  const handleCoachComplete = async (index: number, coachResult: any) => {
+  const handleCoachComplete = async (index: number, coachResult: CoachResult) => {
     if (!result) return;
     
     // Update local snapshot immutably
@@ -232,17 +233,13 @@ export default function ResultPage() {
       // Persist to DB
       await supabase
         .from("user_history")
-        .update({ result: latestSession.result as any })
+        .update({ result: latestSession.result as unknown as Record<string, unknown> })
         .eq("session_id", latestSession.id)
         .eq("user_id", user.id);
     }
   };
 
-  const today = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric"
-  });
+
 
   if (!result) {
     return (
@@ -274,7 +271,6 @@ export default function ResultPage() {
   const categories = buildCategories(result);
   const headline = summaryHeadline(result.final_score);
   const durationLabel = formatDuration(result.delivery_metrics.duration_sec);
-  const summaryText = `${result.feedback.content} ${result.feedback.delivery}`;
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 overflow-hidden" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -407,7 +403,8 @@ export default function ResultPage() {
                     deliveryScore: result.delivery_score,
                     nonVerbalScore: result.non_verbal_score
                   }}
-                  cachedCoachData={result.feedback.coach_data}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  cachedCoachData={result.feedback.coach_data as any}
                   onCoachComplete={handleCoachComplete}
                 />
               );

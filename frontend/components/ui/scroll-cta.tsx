@@ -7,23 +7,7 @@ import Link from "next/link";
 import { Reveal } from "@/components/ui/scroll-effects";
 import Aurora from "@/components/ui/Aurora";
 
-// We copy the SVG icons from page.tsx so this component is self-contained
-function IconPlay() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  );
-}
 
-function IconArrowUpRight() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="7" y1="17" x2="17" y2="7" />
-      <polyline points="7 7 17 7 17 17" />
-    </svg>
-  );
-}
 
 interface ScrollCTAProps {
   words: string[];

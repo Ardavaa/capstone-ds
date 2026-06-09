@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, useEffect } from "react";
 
-import AppIcon, { type IconName } from "@/app/components/AppIcon";
+
 import { createClient } from "@/utils/supabase/client";
 import {
   type AnalyzeResponse,
@@ -423,7 +423,7 @@ function NonVerbalTab({ latest, selectedSession }: { latest: AnalyzeResponse | n
   
   useEffect(() => {
     if (!selectedSession?.videoUrls?.length) {
-      setSignedUrls([]);
+      setTimeout(() => setSignedUrls([]), 0);
       return;
     }
     
@@ -574,7 +574,6 @@ function readReportSnapshot(): ReportSnapshot {
 
 export default function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("OVERVIEW");
-  const [userName, setUserName] = useState("Local user");
 
   useEffect(() => {
     fetchUserHistoryFromDB().catch(console.error);

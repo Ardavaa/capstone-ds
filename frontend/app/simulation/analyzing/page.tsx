@@ -111,13 +111,6 @@ export default function AnalyzingPage() {
   const [error, setError]             = useState<string | null>(null);
   const [progress, setProgress]       = useState(0); // 0-100 overall
 
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    runAnalysis();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function runAnalysis() {
     const sessionAnswers = loadSessionAnswers();
 
@@ -238,6 +231,13 @@ export default function AnalyzingPage() {
     setProgress(100);
     setTimeout(() => router.push("/simulation/result"), 800);
   }
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    runAnalysis();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Animates step progress while one answer is being analyzed */
   function startStepTimer(): ReturnType<typeof setInterval> {

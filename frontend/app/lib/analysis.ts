@@ -94,7 +94,7 @@ export type AnalyzeResponse = {
     delivery: string;
     non_verbal: string;
     overall_insight?: string;
-    coach_data?: Record<number, any>;
+    coach_data?: Record<number, unknown>;
   };
   file_name: string;
   file_size_bytes: number;
@@ -679,8 +679,9 @@ export async function analyzeRecording(
         
       if (data && data.result) {
         await cleanup();
-        if ((data.result as any).is_error) {
-          reject(new Error((data.result as any).message || "Analysis failed"));
+        const resultData = data.result as Record<string, unknown>;
+        if (resultData.is_error) {
+          reject(new Error(String(resultData.message) || "Analysis failed"));
         } else {
           resolve(data.result as AnalyzeResponse);
         }

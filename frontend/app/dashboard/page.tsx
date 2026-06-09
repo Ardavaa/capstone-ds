@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo, useSyncExternalStore, useState, useEffect } from "react";
-import { logout } from "@/app/auth/actions";
 import { createClient } from "@/utils/supabase/client";
-
-import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import AppIcon from "@/app/components/AppIcon";
 import { Sidebar } from "@/app/components/Sidebar";
-import { GlassButton } from "@/components/ui/glass-button";
 import ButtonWithIcon from "@/components/ui/button-witn-icon";
 import Aurora from "@/components/ui/Aurora";
 import BorderGlow from "@/components/ui/BorderGlow";
@@ -21,11 +19,6 @@ import {
 
 // ─── UTILS & STORAGE ────────────────────────────────────────────────────────
 
-function scoreStyle(score: number) {
-  if (score >= 80) return { text: "text-emerald-700", bg: "bg-emerald-50", ring: "ring-emerald-600/20", line: "#10B981" };
-  if (score >= 60) return { text: "text-amber-700", bg: "bg-amber-50", ring: "ring-amber-600/20", line: "#F59E0B" };
-  return { text: "text-rose-700", bg: "bg-rose-50", ring: "ring-rose-600/20", line: "#F43F5E" };
-}
 
 function subscribeToStorage(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
@@ -49,21 +42,10 @@ function parseHistorySnapshot(snapshot: string): SessionRecord[] {
 
 // ─── UI COMPONENTS ──────────────────────────────────────────────────────────
 
-function SparklesIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-      <path d="M20 3v4" />
-      <path d="M22 5h-4" />
-      <path d="M4 17v2" />
-      <path d="M5 18H3" />
-    </svg>
-  );
-}
 
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 
-function Sparkline({ data, color, className = "", isNegative = false }: { data: number[], color: string, className?: string, isNegative?: boolean }) {
+function Sparkline({ data, color, className = "" }: { data: number[], color: string, className?: string, isNegative?: boolean }) {
   if (!data || data.length === 0) return <div className={`h-12 opacity-10 bg-slate-200 rounded-md w-full ${className}`} />;
 
   let displayData = data.map((val, index) => ({
@@ -198,7 +180,7 @@ export default function Dashboard() {
     else if (readiness >= 70) percentile = "Top 25%";
 
     // Deltas calculation (comparing recent half to older half)
-    let scoreDelta = 0, fillerDelta = 0, nvDelta = 0;
+    let scoreDelta = 0, fillerDelta = 0;
     if (sessions.length > 1) {
       const half = Math.ceil(chronological.length / 2);
       const recentScores = scores.slice(-half);
@@ -252,7 +234,7 @@ export default function Dashboard() {
         fillers: fillers.length > 1 ? fillers : [fillers[0] || 0, fillers[0] || 0],
         nvs: nonVerbals.length > 1 ? nonVerbals : [nonVerbals[0] || 0, nonVerbals[0] || 0]
       },
-      deltas: { score: scoreDelta, filler: fillerDelta, nv: 0 } // simplified nv delta for now
+      deltas: { score: scoreDelta, filler: fillerDelta, nv: 0 }
     };
   }, [sessions]);
 
@@ -310,9 +292,11 @@ export default function Dashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-8 border-t border-white/10 pt-6 w-full max-w-xl">
                   <div className="flex items-center gap-4">
                     <div className="relative flex items-center justify-center size-14 bg-white/5 rounded-2xl border border-white/10 shrink-0">
-                      <img 
+                      <Image 
                         src="/images/flame-icon.svg" 
                         alt="Streak Flame" 
+                        width={32}
+                        height={32}
                         className="size-8 object-contain drop-shadow-[0_0_8px_rgba(236,111,89,0.5)] animate-pulse"
                       />
                     </div>
@@ -448,7 +432,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {recent.map((session, i) => {
+                {recent.map((session) => {
                   const r = session.result;
                   const duration = formatDuration(r.delivery_metrics.duration_sec);
                   

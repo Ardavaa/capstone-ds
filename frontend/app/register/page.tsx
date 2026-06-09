@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
@@ -91,7 +92,7 @@ export default function RegisterPage() {
               </div>
               <h2 className="text-[28px] font-bold text-slate-900 mb-3 tracking-tight">Check your email</h2>
               <p className="text-[15px] text-slate-500 mb-8 leading-relaxed px-4">
-                We've sent a verification link to your email address. Please check your inbox and confirm your account to continue to onboarding.
+                We&apos;ve sent a verification link to your email address. Please check your inbox and confirm your account to continue to onboarding.
               </p>
               <Link href="/login" className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-4 text-[15px] font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:bg-indigo-500">
                 Return to Login
@@ -248,7 +249,7 @@ export default function RegisterPage() {
           </form>
 
           <p className="mt-8 text-center lg:text-left text-[13px] text-slate-500 leading-relaxed">
-            By signing up you agree to Lumen's <Link href="#" className="underline hover:text-slate-900">Privacy Policy</Link> and <Link href="#" className="underline hover:text-slate-900">Terms of Service</Link>
+            By signing up you agree to Lumen&apos;s <Link href="#" className="underline hover:text-slate-900">Privacy Policy</Link> and <Link href="#" className="underline hover:text-slate-900">Terms of Service</Link>
           </p>
             </>
           )}

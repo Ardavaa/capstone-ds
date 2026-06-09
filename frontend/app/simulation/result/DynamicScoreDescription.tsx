@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useCompletion } from "@ai-sdk/react";
 
 export function DynamicScoreDescription({
@@ -16,14 +16,14 @@ export function DynamicScoreDescription({
     api: "/api/score-feedback",
   });
 
-  const [hasStarted, setHasStarted] = useState(false);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!hasStarted && feedback) {
-      setHasStarted(true);
+    if (!hasStartedRef.current && feedback) {
+      hasStartedRef.current = true;
       complete(`Category: ${title}\nScore: ${score}/100\nOriginal Feedback: ${feedback}\n\nRewrite this into a 2-sentence punchy summary highlighting key metrics in **asterisks**.`);
     }
-  }, [hasStarted, feedback, title, score, complete]);
+  }, [feedback, title, score, complete]);
 
   // Parse text to replace **keyword** with highlight spans
   const parseRichText = (text: string) => {

@@ -127,8 +127,8 @@ export function TranscriptCarousel({
     deliveryScore: number;
     nonVerbalScore: number;
   };
-  cachedCoachData?: Record<number, any>;
-  onCoachComplete?: (index: number, result: any) => void;
+  cachedCoachData?: Record<number, CoachResult>;
+  onCoachComplete?: (index: number, result: CoachResult) => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -166,7 +166,8 @@ export function TranscriptCarousel({
       if (onCoachComplete) {
         onCoachComplete(currentIndex, response);
       }
-    } catch (error) {
+    } catch (err: unknown) {
+      console.error(err);
       setErrorMap(prev => ({ ...prev, [currentIndex]: "Failed to load AI Coach response. Please ensure your API key is correct." }));
     } finally {
       setLoadingMap(prev => ({ ...prev, [currentIndex]: false }));
