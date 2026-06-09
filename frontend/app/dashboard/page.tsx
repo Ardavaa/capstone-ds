@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useSyncExternalStore, useState, useEffect } from "react";
 import { logout } from "@/app/auth/actions";
+import { createClient } from "@/utils/supabase/client";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -13,6 +14,7 @@ import {
   formatDuration,
   selectSession,
   STORAGE_KEYS,
+  fetchUserHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
 
@@ -141,17 +143,30 @@ export default function Dashboard() {
 
   const [streak, setStreak] = useState(0);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userInitials, setUserInitials] = useState("U");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    fetchUserHistoryFromDB().catch(console.error);
+    
+    async function syncStreak() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const today = new Date().toISOString().split("T")[0];
-      const lastLogin = localStorage.getItem("last_login_date");
-      let currentStreak = parseInt(localStorage.getItem("login_streak") || "0", 10);
+      const metadata = user.user_metadata || {};
+      
+      const name = metadata.full_name || "User";
+      const parts = name.trim().split(/\s+/);
+      setUserInitials(parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || "U").toUpperCase());
+
+      const lastLogin = metadata.last_login_date;
+      let currentStreak = parseInt(metadata.login_streak || "0", 10);
+      let shouldUpdate = false;
 
       if (!lastLogin) {
         currentStreak = 1;
-        localStorage.setItem("login_streak", "1");
-        localStorage.setItem("last_login_date", today);
+        shouldUpdate = true;
       } else {
         const lastDate = new Date(lastLogin);
         const todayDate = new Date(today);
@@ -160,18 +175,31 @@ export default function Dashboard() {
 
         if (diffDays === 1) {
           currentStreak += 1;
-          localStorage.setItem("login_streak", String(currentStreak));
-          localStorage.setItem("last_login_date", today);
+          shouldUpdate = true;
         } else if (diffDays > 1) {
           currentStreak = 1;
-          localStorage.setItem("login_streak", "1");
-          localStorage.setItem("last_login_date", today);
+          shouldUpdate = true;
         } else {
-          if (currentStreak === 0) currentStreak = 1;
+          if (currentStreak === 0) {
+            currentStreak = 1;
+            shouldUpdate = true;
+          }
         }
       }
+
       setStreak(currentStreak);
+
+      if (shouldUpdate) {
+        await supabase.auth.updateUser({
+          data: {
+            login_streak: currentStreak,
+            last_login_date: today,
+          }
+        });
+      }
     }
+
+    syncStreak().catch(console.error);
   }, []);
 
   const { stats, insights, trends, deltas } = useMemo(() => {
@@ -290,9 +318,9 @@ export default function Dashboard() {
           <div className="relative flex flex-col items-center">
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="size-11 overflow-hidden rounded-full border border-white/10 bg-[#1E1E1E] flex items-center justify-center font-normal text-white text-[15px] shadow-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="size-11 overflow-hidden rounded-full border border-white/10 bg-[#1E1E1E] flex items-center justify-center font-semibold tracking-wider text-white text-[15px] shadow-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             >
-              U
+              {userInitials}
             </button>
             
             {/* Popover */}
@@ -387,14 +415,14 @@ export default function Dashboard() {
                       {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
                         const todayIndex = (new Date().getDay() + 6) % 7; // 0 for Monday, 6 for Sunday
                         const isActive = idx === todayIndex;
-                        const isPast = idx < todayIndex;
+                        const isPastCompleted = idx < todayIndex && (todayIndex - idx) < streak;
                         return (
                           <div 
                             key={idx} 
                             className={`flex flex-col items-center justify-center size-8 rounded-lg text-xs font-bold transition-all duration-300 ${
                               isActive 
                                 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)] scale-110' 
-                                : isPast
+                                : isPastCompleted
                                   ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
                                   : 'bg-white/5 text-slate-500 border border-white/5'
                             }`}

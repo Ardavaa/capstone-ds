@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, useEffect } from "react";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import { createClient } from "@/utils/supabase/client";
 import {
   type AnalyzeResponse,
   emotionBorderColor,
@@ -11,6 +12,7 @@ import {
   loadAnalysisResult,
   loadSelectedSession,
   STORAGE_KEYS,
+  fetchUserHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
 
@@ -561,6 +563,23 @@ function readReportSnapshot(): ReportSnapshot {
 
 export default function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("OVERVIEW");
+  const [userName, setUserName] = useState("Local user");
+  const [userInitials, setUserInitials] = useState("U");
+
+  useEffect(() => {
+    fetchUserHistoryFromDB().catch(console.error);
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const name = user.user_metadata?.full_name || "User";
+        setUserName(name);
+        const parts = name.trim().split(/\s+/);
+        setUserInitials(parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || "U").toUpperCase());
+      }
+    });
+  }, []);
+
   const reportSnapshotKey = useSyncExternalStore(
     subscribeToStorage,
     getReportSnapshotKey,
@@ -621,17 +640,17 @@ export default function ReportCardsPage() {
           >
             <AppIcon name="menu" className="size-3.5" title="Toggle sidebar" />
           </button>
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a]">
-              <AppIcon name="user" className="size-3.5 text-[#faf7f2]" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a] text-[#faf7f2] font-semibold text-[11px] tracking-wider rounded-full">
+                {userInitials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a] truncate">
+                  {userName}
+                </p>
+                <p className="truncate text-[10px] text-[#bfbfbf]">Signed in</p>
+              </div>
             </div>
-            <div className="min-w-0 overflow-hidden">
-              <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a]">
-                Local user
-              </p>
-              <p className="truncate text-[10px] text-[#bfbfbf]">Demo mode</p>
-            </div>
-          </div>
         </div>
       </aside>
 

@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, useEffect } from "react";
 
 import AppIcon, { type IconName } from "@/app/components/AppIcon";
+import { createClient } from "@/utils/supabase/client";
 import {
   formatDuration,
   selectSession,
   STORAGE_KEYS,
+  fetchUserHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
 
@@ -80,6 +82,23 @@ function ScoreBar({ score }: { score: number }) {
 
 export default function HistoryPage() {
   const [search, setSearch] = useState("");
+  const [userName, setUserName] = useState("Local user");
+  const [userInitials, setUserInitials] = useState("U");
+
+  useEffect(() => {
+    fetchUserHistoryFromDB().catch(console.error);
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const name = user.user_metadata?.full_name || "User";
+        setUserName(name);
+        const parts = name.trim().split(/\s+/);
+        setUserInitials(parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || "U").toUpperCase());
+      }
+    });
+  }, []);
+
   const historySnapshot = useSyncExternalStore(
     subscribeToStorage,
     getHistorySnapshot,
@@ -147,12 +166,12 @@ export default function HistoryPage() {
             <AppIcon name="menu" className="size-3.5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a]">
-              <AppIcon name="user" className="size-3.5 text-[#faf7f2]" />
+            <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a] text-[#faf7f2] font-semibold text-[11px] tracking-wider rounded-full">
+              {userInitials}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a]">Local user</p>
-              <p className="truncate text-[10px] text-[#bfbfbf]">Demo mode</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a] truncate">{userName}</p>
+              <p className="truncate text-[10px] text-[#bfbfbf]">Signed in</p>
             </div>
           </div>
         </div>

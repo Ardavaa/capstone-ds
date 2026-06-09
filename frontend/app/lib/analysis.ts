@@ -1,4 +1,5 @@
 /** Shared types and API helpers for interview analysis. */
+import { createClient } from "@/utils/supabase/client";
 
 export const STORAGE_KEYS = {
   recording: "lumenRecording",
@@ -438,6 +439,53 @@ export function saveSessionToHistory(
   const updated = [record, ...existing].slice(0, 50);
   localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(updated));
   selectSession(record);
+  
+  // Async save to database
+  saveUserHistoryToDB(record).catch(console.error);
+}
+
+export async function saveUserHistoryToDB(record: SessionRecord) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  
+  await supabase.from("user_history").insert({
+    user_id: user.id,
+    session_id: record.id,
+    question_topic: record.questionTopic,
+    category_label: record.categoryLabel,
+    date: new Date().toISOString(),
+    result: record.result as unknown as Record<string, unknown>,
+    questions: record.questions,
+  });
+}
+
+export async function fetchUserHistoryFromDB(): Promise<SessionRecord[]> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  
+  const { data, error } = await supabase
+    .from("user_history")
+    .select("*")
+    .order("created_at", { ascending: false });
+    
+  if (error || !data) return [];
+  
+  const records = data.map(row => ({
+    id: row.session_id,
+    questionTopic: row.question_topic,
+    date: new Date(row.date).toISOString().slice(0, 10).replace(/-/g, "."),
+    result: row.result as AnalyzeResponse,
+    categoryLabel: row.category_label,
+    questions: row.questions as string[],
+  }));
+  
+  // Update local storage so synchronous components have the latest data
+  localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(records));
+  window.dispatchEvent(new Event("storage"));
+  
+  return records;
 }
 
 export function loadSessionHistory(): SessionRecord[] {
