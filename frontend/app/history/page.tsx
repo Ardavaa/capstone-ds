@@ -10,6 +10,7 @@ import {
   selectSession,
   STORAGE_KEYS,
   fetchUserHistoryFromDB,
+  deleteSessionHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
 
@@ -84,6 +85,17 @@ export default function HistoryPage() {
   const [search, setSearch] = useState("");
   const [userName, setUserName] = useState("Local user");
   const [userInitials, setUserInitials] = useState("U");
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  async function handleDelete(record: SessionRecord) {
+    if (!confirm("Are you sure you want to delete this session? This cannot be undone.")) return;
+    setIsDeleting(record.id);
+    const success = await deleteSessionHistoryFromDB(record);
+    if (!success) {
+      alert("Failed to delete session.");
+    }
+    setIsDeleting(null);
+  }
 
   useEffect(() => {
     fetchUserHistoryFromDB().catch(console.error);
@@ -226,9 +238,9 @@ export default function HistoryPage() {
         {/* ── Table ── */}
         <div className="mt-4 border border-[#0a0a0a] bg-white">
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_140px_80px_100px_80px_60px_36px] items-center gap-x-4 border-b border-[#0a0a0a] bg-[#0a0a0a] px-5 py-2.5">
-            {["Session", "Category", "Questions", "Date", "Score", "Trend", ""].map((h) => (
-              <span key={h} className="text-[10px] uppercase tracking-[1.5px] text-[#faf7f2]">{h}</span>
+          <div className="grid grid-cols-[1fr_140px_80px_100px_80px_60px_36px_36px] items-center gap-x-4 border-b border-[#0a0a0a] bg-[#0a0a0a] px-5 py-2.5">
+            {["Session", "Category", "Questions", "Date", "Score", "Trend", "", ""].map((h, idx) => (
+              <span key={idx} className="text-[10px] uppercase tracking-[1.5px] text-[#faf7f2]">{h}</span>
             ))}
           </div>
 
@@ -251,9 +263,9 @@ export default function HistoryPage() {
               return (
                 <div
                   key={s.id}
-                  className={`grid grid-cols-[1fr_140px_80px_100px_80px_60px_36px] items-center gap-x-4 px-5 py-4 transition-colors hover:bg-black/2 ${
+                  className={`grid grid-cols-[1fr_140px_80px_100px_80px_60px_36px_36px] items-center gap-x-4 px-5 py-4 transition-colors hover:bg-black/2 ${
                     i < visible.length - 1 ? "border-b border-[#f0ece4]" : ""
-                  }`}
+                  } ${isDeleting === s.id ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[13px] font-medium uppercase tracking-[0.26px] text-[#0a0a0a]">
@@ -295,6 +307,19 @@ export default function HistoryPage() {
                   >
                     <AppIcon name="arrow-right" className="size-3.5" title="View report" />
                   </Link>
+
+                  <button
+                    onClick={() => handleDelete(s)}
+                    disabled={isDeleting === s.id}
+                    className="flex items-center justify-center text-[#c75240] hover:opacity-60"
+                    title="Delete session"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
                 </div>
               );
             })

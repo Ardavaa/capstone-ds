@@ -493,6 +493,30 @@ export async function fetchUserHistoryFromDB(): Promise<SessionRecord[]> {
   return records;
 }
 
+export async function deleteSessionHistoryFromDB(record: SessionRecord): Promise<boolean> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  if (record.videoUrls && record.videoUrls.length > 0) {
+    await supabase.storage.from("interview_videos").remove(record.videoUrls).catch(console.error);
+  }
+
+  const { error } = await supabase
+    .from("user_history")
+    .delete()
+    .eq("session_id", record.id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Failed to delete session history", error);
+    return false;
+  }
+
+  await fetchUserHistoryFromDB();
+  return true;
+}
+
 export function loadSessionHistory(): SessionRecord[] {
   const raw = localStorage.getItem(STORAGE_KEYS.history);
   if (!raw) return [];
