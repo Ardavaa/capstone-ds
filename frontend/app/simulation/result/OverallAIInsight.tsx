@@ -18,13 +18,13 @@ export function OverallAIInsight({
   const rawTextRef = useRef("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  const hasStartedRef = useRef(false);
   const streamDoneRef = useRef(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (hasStarted) return;
-    setHasStarted(true);
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
 
     if (cachedInsight) {
       setDisplayedText(cachedInsight);
@@ -70,7 +70,7 @@ export function OverallAIInsight({
     }
 
     fetchStream();
-  }, [hasStarted, scores, feedback, cachedInsight, onComplete]);
+  }, [scores, feedback, cachedInsight, onComplete]);
 
   // Smooth typewriter effect
   useEffect(() => {

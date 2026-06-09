@@ -12,9 +12,9 @@ import {
   loadAnalysisResult,
   loadSelectedSession,
   STORAGE_KEYS,
-  fetchUserHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
+import { Sidebar } from "@/app/components/Sidebar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,32 +43,6 @@ const EMOTION_BAR_COLORS: Record<string, string> = {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SidebarNavItem({
-  icon,
-  label,
-  active = false,
-  href,
-}: {
-  icon: IconName;
-  label: string;
-  active?: boolean;
-  href?: string;
-}) {
-  const cls = `flex cursor-pointer items-center gap-2.5 px-2.5 py-2.5 ${
-    active ? "bg-[#0a0a0a]" : "hover:bg-black/5"
-  }`;
-  const content = (
-    <>
-      <AppIcon name={icon} className="size-3.5 shrink-0" />
-      <span className={`text-[12px] uppercase tracking-[0.6px] ${active ? "text-[#faf7f2]" : "text-[#0a0a0a]"}`}>
-        {label}
-      </span>
-    </>
-  );
-  if (href) return <Link href={href} className={cls}>{content}</Link>;
-  return <div className={cls}>{content}</div>;
-}
 
 function EmotionDistributionChart({ latest }: { latest: AnalyzeResponse }) {
   const vm = latest.video_emotion_metrics;
@@ -600,20 +574,9 @@ function readReportSnapshot(): ReportSnapshot {
 export default function ReportCardsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("OVERVIEW");
   const [userName, setUserName] = useState("Local user");
-  const [userInitials, setUserInitials] = useState("U");
 
   useEffect(() => {
     fetchUserHistoryFromDB().catch(console.error);
-
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        const name = user.user_metadata?.full_name || "User";
-        setUserName(name);
-        const parts = name.trim().split(/\s+/);
-        setUserInitials(parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : (parts[0]?.[0] || "U").toUpperCase());
-      }
-    });
   }, []);
 
   const reportSnapshotKey = useSyncExternalStore(
@@ -637,58 +600,8 @@ export default function ReportCardsPage() {
     : `[ Report · ${today} · No selected session ]`;
 
   return (
-    <div className="flex h-full overflow-hidden border border-[#0a0a0a] bg-[#faf7f2]">
-      {/* ── Sidebar ── */}
-      <aside className="flex w-[220px] shrink-0 flex-col border-r border-[#0a0a0a]">
-        {/* Logo */}
-        <div className="flex h-14 items-center gap-2.5 border-b border-[#0a0a0a] px-4">
-          <div className="size-6 bg-[#0a0a0a]" />
-          <span className="text-[14px] font-bold uppercase tracking-[0.7px] text-[#0a0a0a]">
-            Lumen
-          </span>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4">
-          <div className="px-2 pb-1.5 pt-3">
-            <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Workspace</span>
-          </div>
-          <SidebarNavItem icon="dashboard" label="Dashboard" href="/dashboard" />
-          <SidebarNavItem icon="plus" label="New Simulation" href="/simulation/setup" />
-
-          <div className="px-2 pb-1.5 pt-3.5">
-            <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Library</span>
-          </div>
-          <SidebarNavItem icon="clock" label="History" href="/history" />
-          <SidebarNavItem icon="file" label="Report Cards" active href="/report-cards" />
-
-          <div className="px-2 pb-1.5 pt-3.5">
-            <span className="text-[10px] uppercase tracking-[2px] text-[#bfbfbf]">Account</span>
-          </div>
-          <SidebarNavItem icon="settings" label="Settings" />
-        </nav>
-
-        {/* Footer */}
-        <div className="border-t border-[#0a0a0a] px-4 py-4">
-          <button
-            type="button"
-            className="mb-3 flex h-9 w-full items-center justify-center border border-[#0a0a0a] bg-white hover:bg-black/5"
-          >
-            <AppIcon name="menu" className="size-3.5" title="Toggle sidebar" />
-          </button>
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center bg-[#0a0a0a] text-[#faf7f2] font-semibold text-[11px] tracking-wider rounded-full">
-                {userInitials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.55px] text-[#0a0a0a] truncate">
-                  {userName}
-                </p>
-                <p className="truncate text-[10px] text-[#bfbfbf]">Signed in</p>
-              </div>
-            </div>
-        </div>
-      </aside>
+    <div className="flex h-screen overflow-hidden bg-[#faf7f2]">
+      <Sidebar />
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-y-auto px-10 pb-10">
