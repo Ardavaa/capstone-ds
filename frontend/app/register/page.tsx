@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
+import { signup } from "@/app/auth/actions";
 
 
 // Helper components for the visual enhancement
@@ -24,13 +24,21 @@ function StarIcon() {
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    router.push("/dashboard");
+  const [nameFocused, setNameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  async function handleSubmit(formData: FormData) {
+    setErrorMsg("");
+    startTransition(async () => {
+      const result = await signup(formData);
+      if (result?.error) {
+        setErrorMsg(result.error);
+      }
+    });
   }
 
   return (
@@ -78,13 +86,42 @@ export default function RegisterPage() {
             </Link>
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
+          <form action={handleSubmit} className="mt-10 flex flex-col gap-5">
+            {errorMsg && (
+              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-100">
+                {errorMsg}
+              </div>
+            )}
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-bold text-slate-800">
+                Full name
+              </label>
+              <div className="relative">
+                <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${nameFocused ? 'text-indigo-500' : 'text-slate-400'}`}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  name="name"
+                  onFocus={() => setNameFocused(true)}
+                  onBlur={() => setNameFocused(false)}
+                  placeholder="John Doe"
+                  className="w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 py-3.5 text-[15px] text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-sm"
+                  required
+                />
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-bold text-slate-800">
                 Email address
               </label>
               <div className="relative">
-                <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${isFocused ? 'text-indigo-500' : 'text-slate-400'}`}>
+                <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${emailFocused ? 'text-indigo-500' : 'text-slate-400'}`}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
                     <path d="M2 4l10 8 10-8"/>
@@ -92,10 +129,9 @@ export default function RegisterPage() {
                 </div>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
+                  name="email"
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
                   placeholder="name@company.com"
                   className="w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 py-3.5 text-[15px] text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-sm"
                   required
@@ -103,15 +139,42 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-bold text-slate-800">
+                Password
+              </label>
+              <div className="relative">
+                <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${passwordFocused ? 'text-indigo-500' : 'text-slate-400'}`}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <input
+                  type="password"
+                  name="password"
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 py-3.5 text-[15px] text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 shadow-sm"
+                  required
+                  minLength={6}
+                />
+              </div>
+            </div>
+
             <button
               type="submit"
-              className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500"
+              disabled={isPending}
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
             >
-              Get Started Free
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
+              {isPending ? "Creating account..." : "Get Started Free"}
+              {!isPending && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              )}
             </button>
 
             <div className="relative my-4 flex items-center justify-center">

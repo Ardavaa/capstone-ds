@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
+import { login } from "@/app/auth/actions";
 
 // Helper components for the visual enhancement
 function CheckmarkIcon() {
@@ -23,16 +23,21 @@ function StarIcon() {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isPending, startTransition] = useTransition();
+
   const [remember, setRemember] = useState(false);
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    router.push("/dashboard");
+  async function handleSubmit(formData: FormData) {
+    setErrorMsg("");
+    startTransition(async () => {
+      const result = await login(formData);
+      if (result?.error) {
+        setErrorMsg(result.error);
+      }
+    });
   }
 
   return (
@@ -77,7 +82,13 @@ export default function LoginPage() {
             Sign in to access your dashboard and continue practicing.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
+          <form action={handleSubmit} className="mt-10 flex flex-col gap-5">
+            {errorMsg && (
+              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-100">
+                {errorMsg}
+              </div>
+            )}
+            
             {/* Email Input */}
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-bold text-slate-800">
@@ -92,8 +103,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  name="email"
                   onFocus={() => setIsEmailFocused(true)}
                   onBlur={() => setIsEmailFocused(false)}
                   placeholder="name@company.com"
@@ -117,8 +127,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  name="password"
                   onFocus={() => setIsPasswordFocused(true)}
                   onBlur={() => setIsPasswordFocused(false)}
                   placeholder="••••••••••"
@@ -150,13 +159,16 @@ export default function LoginPage() {
             {/* Sign In Button */}
             <button
               type="submit"
-              className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500"
+              disabled={isPending}
+              className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:bg-indigo-500 disabled:opacity-70 disabled:hover:scale-100 disabled:cursor-not-allowed"
             >
-              Sign In
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"/>
-                <polyline points="12 5 19 12 12 19"/>
-              </svg>
+              {isPending ? "Signing in..." : "Sign In"}
+              {!isPending && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              )}
             </button>
 
             {/* Divider */}
