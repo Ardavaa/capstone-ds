@@ -12,6 +12,7 @@ import {
   loadAnalysisResult,
   loadSelectedSession,
   STORAGE_KEYS,
+  fetchUserHistoryFromDB,
   type SessionRecord,
 } from "@/app/lib/analysis";
 import { Sidebar } from "@/app/components/Sidebar";
