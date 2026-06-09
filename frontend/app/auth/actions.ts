@@ -25,6 +25,7 @@ export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const name = formData.get("name") as string;
+  const origin = formData.get("origin") as string;
   
   const supabase = await createClient();
   
@@ -35,6 +36,7 @@ export async function signup(formData: FormData) {
       data: {
         full_name: name,
       },
+      emailRedirectTo: origin ? `${origin}/auth/callback?next=/onboarding` : undefined,
     },
   });
 
@@ -42,7 +44,7 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
   
-  redirect("/dashboard");
+  return { success: true };
 }
 
 export async function logout() {

@@ -27,6 +27,7 @@ function StarIcon() {
 export default function RegisterPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [isSuccess, setIsSuccess] = useState(false);
   const [isGithubLoading, setIsGithubLoading] = useState(false);
 
   async function handleGithubLogin() {
@@ -52,10 +53,13 @@ export default function RegisterPage() {
 
   async function handleSubmit(formData: FormData) {
     setErrorMsg("");
+    formData.append("origin", window.location.origin);
     startTransition(async () => {
       const result = await signup(formData);
       if (result?.error) {
         setErrorMsg(result.error);
+      } else if (result?.success) {
+        setIsSuccess(true);
       }
     });
   }
@@ -72,8 +76,31 @@ export default function RegisterPage() {
         }} />
 
         <div className="relative z-10 mx-auto w-full max-w-[440px]">
-          {/* Social Proof Badge */}
-          <div className="mb-8 flex items-center gap-3 rounded-full border border-slate-100 bg-slate-50 py-1.5 pl-2 pr-4 shadow-sm w-fit">
+          {isSuccess ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center text-center py-10"
+            >
+              <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-indigo-50 border-4 border-indigo-100/50">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                  <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8" />
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  <path d="m16 19 2 2 4-4" />
+                </svg>
+              </div>
+              <h2 className="text-[28px] font-bold text-slate-900 mb-3 tracking-tight">Check your email</h2>
+              <p className="text-[15px] text-slate-500 mb-8 leading-relaxed px-4">
+                We've sent a verification link to your email address. Please check your inbox and confirm your account to continue to onboarding.
+              </p>
+              <Link href="/login" className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-4 text-[15px] font-semibold text-white shadow-md shadow-indigo-500/25 transition-all hover:bg-indigo-500">
+                Return to Login
+              </Link>
+            </motion.div>
+          ) : (
+            <>
+              {/* Social Proof Badge */}
+              <div className="mb-8 flex items-center gap-3 rounded-full border border-slate-100 bg-slate-50 py-1.5 pl-2 pr-4 shadow-sm w-fit">
             <div className="flex -space-x-2">
               {[
                 "/testi-user/ardava.png",
@@ -223,6 +250,8 @@ export default function RegisterPage() {
           <p className="mt-8 text-center lg:text-left text-[13px] text-slate-500 leading-relaxed">
             By signing up you agree to Lumen's <Link href="#" className="underline hover:text-slate-900">Privacy Policy</Link> and <Link href="#" className="underline hover:text-slate-900">Terms of Service</Link>
           </p>
+            </>
+          )}
         </div>
       </div>
 

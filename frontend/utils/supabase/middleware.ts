@@ -35,27 +35,35 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/register") &&
-    request.nextUrl.pathname.startsWith("/dashboard")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/register");
+  const isOnboardingRoute = request.nextUrl.pathname.startsWith("/onboarding");
+  const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard") || 
+                           request.nextUrl.pathname.startsWith("/simulation") || 
+                           request.nextUrl.pathname.startsWith("/history") || 
+                           request.nextUrl.pathname.startsWith("/report-cards");
 
-  // Redirect logged in users away from auth pages
-  if (
-    user &&
-    (request.nextUrl.pathname.startsWith("/login") ||
-      request.nextUrl.pathname.startsWith("/register"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  if (!user) {
+    if (isProtectedRoute || isOnboardingRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+  } else {
+    const isSetupComplete = user.user_metadata?.setup_complete === true;
+
+    // Force onboarding if incomplete and trying to access protected or auth pages
+    if (!isSetupComplete && (isProtectedRoute || isAuthRoute)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
+      return NextResponse.redirect(url);
+    }
+
+    // Redirect away from auth or onboarding if already complete
+    if (isSetupComplete && (isAuthRoute || isOnboardingRoute)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;
