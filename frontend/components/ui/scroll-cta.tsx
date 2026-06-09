@@ -78,7 +78,7 @@ export default function ScrollCTA({ words }: ScrollCTAProps) {
       filter: "blur(0px)",
       transition: {
         duration: 0.4,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     },
     exit: { 
@@ -87,10 +87,11 @@ export default function ScrollCTA({ words }: ScrollCTAProps) {
       filter: "blur(8px)",
       transition: { 
         duration: 0.3, 
-        ease: "easeIn"
+        ease: "easeIn" as const
       }
     },
   };
+
 
   return (
     <section ref={containerRef} className="relative bg-[#0A0D14]" style={{ height: `${words.length * 60}vh` }}>

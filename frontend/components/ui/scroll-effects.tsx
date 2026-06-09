@@ -103,10 +103,11 @@ export function StaggerReveal({
       opacity: 1,
       transition: {
         duration: 0.7,
-        ease: [0.16, 1, 0.3, 1],
+        ease: [0.16, 1, 0.3, 1] as const,
       },
     },
   };
+
 
   return (
     <motion.div

@@ -204,3 +204,13 @@ html {
   mask-image: radial-gradient(circle at center, black 45%, transparent 85%);
   -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 85%);
 }
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.93; transform: scale(0.995); }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
